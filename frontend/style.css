@@ -1,0 +1,331 @@
+body, html {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    background-color: #000000; /* Dark blue, almost black background */
+    color: #E0E0E0; /* Light color for general text if any */
+    font-family: 'Arial', sans-serif; /* A fallback font */
+    overflow: hidden; /* Prevent scrollbars from Three.js canvas potentially */
+}
+
+.container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+    text-align: center;
+}
+
+.scene-container {
+    display: flex;
+    flex-direction: column; /* Stack title and canvas vertically */
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    position: relative; /* Context for absolute positioning of title if needed */
+}
+
+canvas {
+    display: block; /* Remove extra space below canvas if it's inline */
+    position: absolute; /* Position canvas in the center */
+    top: 0;
+    left: 0;
+    width: 100% !important; /* Override three.js inline styles if necessary */
+    height: 100% !important;
+    z-index: 1; /* Behind the title */
+}
+
+.title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 3.5vw; /* Slightly smaller than stage-message for hierarchy */
+    font-weight: 700;
+    color: #4D94FF;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    text-align: center;
+    padding: 20px;
+    position: absolute; /* Added for positioning if not already */
+    top: 50%; /* Adjusted for title positioning */
+    left: 50%;
+    transform: translate(-50%, -50%);
+    white-space: nowrap;
+    z-index: 100;
+    text-shadow:
+        -1px -1px 0 #00E5FF, 
+        1px 1px 0 #0052CC;
+    opacity: 1; /* Initial state */
+    transition: opacity 0.5s ease-out; /* Transition for fade out */
+    pointer-events: auto; /* Initially interactive */
+}
+
+.stage-message {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 5vw; /* Increase font size */
+    font-weight: 700; /* Match .title */
+    color: #4D94FF; /* Match .title */
+    text-transform: uppercase; /* Match .title */
+    letter-spacing: 2px; /* Match .title */
+    text-align: center; /* Match .title */
+    padding: 20px; /* Match .title */
+    text-shadow: /* Match .title anaglyph effect */
+        -1px -1px 0 #00E5FF,
+        1px 1px 0 #0052CC;
+    white-space: nowrap; /* Match .title */
+    z-index: 100; /* Keep higher z-index for overlay messages */
+    opacity: 0; /* Initially hidden via opacity */
+    transition: opacity 0.5s ease-out; /* Transition for fade in/out */
+    pointer-events: none; /* Initially not interactive */
+}
+
+.flicker-effect {
+    animation: anaglyph_flicker 4s infinite alternate;
+}
+
+@keyframes anaglyph_flicker {
+    0%, 100% { text-shadow: -1px -1px 0 #00E5FF, 1px 1px 0 #0052CC; opacity: 1; } /* Ensure opacity for flicker */
+    50% { text-shadow: 1px 1px 0 #FF0000, -1px -1px 0 #00FF00; opacity: 0.8; } /* Example mid-flicker shadow and opacity */
+}
+
+#fullscreen-btn {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    background-color: rgba(255, 255, 255, 0.1); /* Semi-transparent background */
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: #E0E0E0; /* Icon color */
+    padding: 8px;
+    border-radius: 5px;
+    cursor: pointer;
+    z-index: 100; /* Ensure it's on top */
+    display: flex; /* For centering icon if needed */
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.3s;
+}
+
+#fullscreen-btn:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+#fullscreen-btn svg {
+    display: block; /* Remove extra space under SVG */
+}
+
+/* New rule to hide button when html has .fullscreen-active class */
+html.fullscreen-active #fullscreen-btn {
+    display: none;
+}
+
+/* ESP32 Connection Modal Styles */
+.modal {
+    display: none; /* Hidden by default */
+    position: fixed;
+    z-index: 1000; /* On top of everything */
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0,0,0,0.6); /* Dim background */
+    backdrop-filter: blur(5px); /* Frosted glass effect */
+}
+
+.modal-content {
+    background-color: #1a1a1a; /* Dark background for modal */
+    color: #e0e0e0;
+    margin: 15% auto;
+    padding: 25px;
+    border: 1px solid #555;
+    border-radius: 8px;
+    width: 80%;
+    max-width: 400px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    text-align: center;
+}
+
+.close-button {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+    transition: color 0.3s;
+}
+
+.close-button:hover,
+.close-button:focus {
+    color: #fff;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.modal-content label {
+    display: block;
+    margin-top: 10px;
+    margin-bottom: 5px;
+    text-align: left;
+}
+
+.modal-content input[type="text"] {
+    width: calc(100% - 22px);
+    padding: 10px;
+    margin-bottom: 20px;
+    border: 1px solid #444;
+    border-radius: 4px;
+    background-color: #333;
+    color: #e0e0e0;
+    font-size: 16px;
+}
+
+.modal-content button {
+    background-color: #007bff;
+    color: white;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.3s;
+}
+
+.modal-content button:hover {
+    background-color: #0056b3;
+}
+
+#esp32-modal-status {
+    margin-top: 20px;
+    font-style: italic;
+}
+
+/* ESP32 Status Indicator Styles */
+#esp32-status-indicator {
+    position: fixed;
+    bottom: 20px;
+    /* Adjust left to be next to fullscreen button if it's visible */
+    /* Or a bit more to the right if fullscreen button is hidden */
+    left: 70px; /* Assuming fullscreen button takes up ~50px */
+    background-color: rgba(0, 0, 0, 0.7);
+    color: #e0e0e0;
+    padding: 5px 10px;
+    border-radius: 5px;
+    font-size: 14px;
+    z-index: 99; /* Below fullscreen button and modal */
+    opacity: 0; /* Hidden by default, shown via JS */
+    transition: opacity 0.5s;
+}
+
+#esp32-status-indicator.visible {
+    opacity: 1;
+}
+
+#esp32-status-text.connected {
+    color: #4CAF50; /* Green for connected */
+}
+
+#esp32-status-text.connecting {
+    color: #FFC107; /* Yellow for connecting */
+}
+
+#esp32-status-text.disconnected {
+    color: #F44336; /* Red for disconnected */
+}
+
+/* Adjust indicator position if fullscreen button is hidden (which it is in fullscreen) */
+html.fullscreen-active #esp32-status-indicator {
+    left: 20px; /* Move to far left if fullscreen button is hidden */
+}
+
+/* Stage 2 Styles */
+.stage-title {
+    font-family: 'Audiowide', cursive;
+    font-size: 2.2vw;
+    font-weight: 700;
+    color: #0066AA;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    text-align: center;
+    padding: 10px 20px;
+    position: absolute;
+    top: -5px;
+    left: 50%;
+    transform: translate(-50%, 0);
+    white-space: nowrap;
+    z-index: 100;
+    text-shadow:
+        0 0 5px #003366,
+        0 0 10px #004488,
+        0 0 15px #0055AA;
+    opacity: 0; /* Initial state */
+    transition: opacity 0.5s ease-out;
+    border-bottom: 1px solid rgba(0, 100, 200, 0.3);
+}
+
+.stage-subtitle {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.5vw;
+    font-weight: 400;
+    color: #4D94FF;
+    text-align: center;
+    padding: 10px;
+    position: absolute;
+    top: 15%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    white-space: nowrap;
+    z-index: 100;
+    text-shadow:
+        -1px -1px 0 #00E5FF, 
+        1px 1px 0 #0052CC;
+    opacity: 0; /* Initial state */
+    transition: opacity 0.5s ease-out;
+}
+
+/* Scan instruction styles */
+#scan-instruction {
+    z-index: 200;
+}
+
+.scan-text {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1.8vw;
+    font-weight: 600;
+    color: #4D94FF;
+    margin-top: 15px;
+    text-shadow: 0 0 5px #003366, 0 0 10px #004488;
+    letter-spacing: 1px;
+}
+
+/* Media Queries */
+@media (max-width: 768px) {
+    .title {
+        font-size: 6vw; /* Larger font on smaller screens for readability */
+        letter-spacing: 1px;
+    }
+    
+    .stage-title {
+        font-size: 5vw;
+    }
+    
+    .stage-subtitle {
+        font-size: 2.5vw;
+    }
+}
+
+@media (max-width: 480px) {
+    .title {
+        font-size: 9vw;
+    }
+    
+    .stage-title {
+        font-size: 7vw;
+    }
+    
+    .stage-subtitle {
+        font-size: 3.5vw;
+    }
+}

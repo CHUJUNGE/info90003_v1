@@ -1,0 +1,38 @@
+<svg width="200" height="200" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="1" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <style>
+    .line {
+      stroke: #00E5FF; /* Bright cyan */
+      stroke-width: 0.5;
+      fill: none;
+    }
+    .glow-line {
+      stroke: #33FFFF; /* Slightly different for glow */
+      stroke-width: 0.8;
+      fill: none;
+      filter: url(#glow);
+    }
+  </style>
+  <!-- Outer circle -->
+  <circle class="glow-line" cx="50" cy="50" r="45"/>
+  
+  <!-- Latitude lines -->
+  <ellipse class="line" cx="50" cy="50" rx="43" ry="15" />
+  <ellipse class="line" cx="50" cy="50" rx="40" ry="30" />
+  <ellipse class="line" cx="50" cy="50" rx="35" ry="40" />
+
+  <!-- Longitude lines (simulated perspective) -->
+  <ellipse class="line" cx="50" cy="50" rx="10" ry="45" />
+  <ellipse class="line" cx="50" cy="50" rx="25" ry="45" transform="rotate(30 50 50)"/>
+  <ellipse class="line" cx="50" cy="50" rx="25" ry="45" transform="rotate(-30 50 50)"/>
+  <ellipse class="line" cx="50" cy="50" rx="35" ry="45" transform="rotate(60 50 50)"/>
+  <ellipse class="line" cx="50" cy="50" rx="35" ry="45" transform="rotate(-60 50 50)"/>
+</svg>

@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crime Scene Reconstruction</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Rajdhani:wght@500;700&family=Audiowide&family=Exo+2:wght@400;700&family=Syncopate:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script> <!-- Three.js CDN -->
+</head>
+<body>
+    <div class="container">
+        <div class="scene-container">
+            <!-- Three.js canvas will be appended here by globe.js -->
+            <h1 class="title">Crime Scene Reconstruction Device</h1>
+        </div>
+
+        <button id="fullscreen-btn" title="Toggle Fullscreen">
+            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
+            </svg>
+        </button>
+
+        <!-- ESP32 Connection Modal -->
+        <div id="esp32-connect-modal" class="modal">
+            <div class="modal-content">
+                <span class="close-button" id="close-modal-btn">&times;</span>
+                <h2>Connect to ESP32</h2>
+                <label for="esp32-ip">ESP32 IP Address:</label>
+                <input type="text" id="esp32-ip" name="esp32-ip" value="crimescene.local">
+                <button id="connect-esp32-btn">Connect</button>
+                <p id="esp32-modal-status">Status: Idle</p>
+            </div>
+        </div>
+
+        <!-- ESP32 Connection Status Indicator (Bottom Left) -->
+        <div id="esp32-status-indicator">
+            <span>ESP32: </span><span id="esp32-status-text">Disconnected</span>
+        </div>
+
+        <!-- Stage elements container -->
+        <div id="stage-elements-container">
+            <!-- Stage 0 elements (like the globe canvas) are already here or dynamically added -->
+            <div id="stage1-welcome-message" class="stage-message" style="display: none;">Welcome</div>
+            <!-- Stage 2 elements -->
+            <div id="stage2-container" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;">
+                <h2 id="stage2-title" class="stage-title" style="opacity: 0; transition: opacity 1s ease-in;">Case 001: A woman was found dead in her home</h2>
+                <div style="position: relative; width: 100%; height: 100%; overflow: hidden;">
+                    <canvas id="floorplan-canvas" style="width: 100%; height: 100%; position: relative; left: -15%;"></canvas>
+                </div>
+                
+                <!-- Scan instruction image and text -->
+                <div id="scan-instruction" style="position: absolute; right: 30px; bottom: 30px; text-align: center; opacity: 0; transition: opacity 1s ease-in;">
+                    <img src="assets/picture/scan_instructor.png" alt="Scan Instructor" style="max-width: 300px; display: block; margin: 0 auto;">
+                    <p class="scan-text">Scan the evidence to uncover the truth</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Audio element for stage-specific sounds -->
+        <audio id="stage-audio" loop preload="auto"></audio>
+
+        <!-- Scripts -->
+        <script type="module" src="js/globe.js"></script>
+        <script src="js/esp32.js"></script> <!-- Ensure this is included -->
+        <script src="js/AudioManager.js"></script> <!-- Include AudioManager -->
+        <script src="js/3d-floorplan.js"></script> <!-- Include 3D Floorplan -->
+        <script type="module"> 
+            let audioManager; 
+            let isTransitioningToStage1 = false; // Flag to prevent multiple transitions
+
+            document.addEventListener('DOMContentLoaded', () => {
+                const modal = document.getElementById('esp32-connect-modal');
+                const closeModalBtn = document.getElementById('close-modal-btn');
+                const connectEsp32Btn = document.getElementById('connect-esp32-btn');
+                const esp32IpInput = document.getElementById('esp32-ip');
+                const modalStatus = document.getElementById('esp32-modal-status');
+                const statusIndicator = document.getElementById('esp32-status-indicator');
+                const statusText = document.getElementById('esp32-status-text');
+
+                let esp32Connection = null; 
+
+                // Initialize AudioManager - assign to the higher-scoped variable
+                audioManager = new AudioManager(); 
+                audioManager.loadSound('stage0Music', 'assets/audio/stage0.wav', true);
+                // Preload Stage 1 sounds
+                audioManager.loadSound('stage1WelcomeSFX', 'assets/audio/stage1_welcome_sfx.wav', false);
+                audioManager.loadSound('stage1WelcomeVoiceZH', 'assets/audio/stage1_welcome_voice_zh.mp3', false);
+
+                // Attempt to play Stage 0 music. If audio not unlocked, it will be queued and play on first interaction.
+                if (audioManager) { 
+                    console.log('DOMContentLoaded: audioManager instance available, setting stage0Music.');
+                    audioManager.setStageMusic('stage0Music'); 
+                } else {
+                    console.error('DOMContentLoaded: audioManager is NOT available here!');
+                }
+
+                const titleElement = document.querySelector('.title'); 
+                const stage1WelcomeMessage = document.getElementById('stage1-welcome-message'); // Get Stage 1 Welcome message
+
+                // Make Stage 0 elements visible
+                if (titleElement) {
+                    titleElement.classList.add('flicker-effect'); 
+                }
+
+                // Function to update UI based on connection state
+                function updateUI(state, message = '') {
+                    statusIndicator.classList.add('visible');
+                    switch (state) {
+                        case 'connecting':
+                            modalStatus.textContent = `Status: Connecting to ${esp32IpInput.value}... ${message}`;
+                            statusText.textContent = 'Connecting...';
+                            statusText.className = 'connecting';
+                            connectEsp32Btn.disabled = true;
+                            connectEsp32Btn.textContent = 'Connecting...';
+                            break;
+                        case 'connected':
+                            modalStatus.textContent = `Status: Connected to ${esp32IpInput.value}!`;
+                            statusText.textContent = 'Connected';
+                            statusText.className = 'connected';
+                            connectEsp32Btn.disabled = false;
+                            connectEsp32Btn.textContent = 'Disconnect'; 
+                            modal.style.display = 'none'; 
+                            break;
+                        case 'disconnected':
+                            modalStatus.textContent = `Status: Disconnected. ${message}`;
+                            statusText.textContent = 'Disconnected';
+                            statusText.className = 'disconnected';
+                            connectEsp32Btn.disabled = false;
+                            connectEsp32Btn.textContent = 'Connect';
+                            break;
+                        case 'error':
+                            modalStatus.textContent = `Status: Error. ${message}`;
+                            statusText.textContent = 'Error';
+                            statusText.className = 'disconnected'; 
+                            connectEsp32Btn.disabled = false;
+                            connectEsp32Btn.textContent = 'Connect';
+                            break;
+                        default: 
+                            modalStatus.textContent = 'Status: Idle. Press Space to toggle.';
+                            statusText.textContent = 'Disconnected';
+                            statusText.className = 'disconnected';
+                            statusIndicator.classList.remove('visible'); 
+                    }
+                }
+
+                // Show modal by default
+                modal.style.display = 'block';
+                updateUI('idle');
+
+                closeModalBtn.onclick = () => {
+                    modal.style.display = 'none';
+                }
+
+                window.onclick = (event) => {
+                    if (event.target == modal) {
+                        // modal.style.display = 'none'; 
+                    }
+                }
+
+                document.addEventListener('keydown', (event) => {
+                    if (event.code === 'Space') {
+                        event.preventDefault(); 
+                        if (modal.style.display === 'block') {
+                            modal.style.display = 'none';
+                        } else {
+                            modal.style.display = 'block';
+                        }
+                        // Update status in modal if shown
+                        if (esp32Connection && esp32Connection.isConnected) {
+                            updateUI('connected');
+                        } else if (esp32Connection && connectEsp32Btn.disabled) { 
+                            updateUI('connecting', modalStatus.textContent.replace('Status: ', ''));
+                        }
+                        else {
+                            updateUI('disconnected', modalStatus.textContent.replace('Status: ', ''));
+                        }
+                    }
+                });
+
+                connectEsp32Btn.addEventListener('click', () => {
+                    const ipAddress = esp32IpInput.value.trim();
+                    if (!ipAddress) {
+                        alert('Please enter an ESP32 IP address.');
+                        return;
+                    }
+
+                    if (esp32Connection && esp32Connection.isConnected) {
+                        esp32Connection.disconnect();
+                    } else {
+                        updateUI('connecting');
+                        if (esp32Connection) { 
+                            esp32Connection.disconnect(); 
+                        }
+                        esp32Connection = new ESP32Connection(ipAddress);
+
+                        esp32Connection.onConnect(() => {
+                            updateUI('connected');
+                            console.log('已连接到ESP32。'); 
+                        });
+
+                        esp32Connection.onDisconnect((event) => {
+                            let message = event && event.reason ? event.reason : '连接丢失或失败。';
+                            if(event && event.code === 1000 && event.reason === '主动断开') { 
+                                message = "用户主动断开连接。";
+                            } else if (esp32Connection && esp32Connection.reconnectAttempts >= esp32Connection.maxReconnectAttempts) {
+                                message = "多次尝试后连接失败。";
+                            }
+                            updateUI('disconnected', message);
+                            console.log(`与ESP32断开连接: ${message}`); 
+                        });
+                        
+                        esp32Connection.onData((data) => {
+                            console.log('从ESP32接收到数据:', data); 
+
+                            // Future: if ESP32 sends stage changes, call audioManager.setStageMusic() or similar
+                        });
+
+                        if (!(connectEsp32Btn.disabled && connectEsp32Btn.textContent === 'Connecting...') && 
+                            !(esp32Connection.isConnected && connectEsp32Btn.textContent === 'Disconnect')) {
+                            esp32Connection.connect();
+                        }
+                    }
+                });
+
+                // Listen for key presses for stage transitions
+                document.addEventListener('keyup', (event) => {
+                    const titleElement = document.querySelector('.title'); 
+                    const stage1WelcomeMessage = document.getElementById('stage1-welcome-message');
+
+                    if (event.key === '1' && !isTransitioningToStage1) { // Check the flag here
+                        isTransitioningToStage1 = true; // Set the flag
+                        console.log('Key 1 pressed: Transitioning to Stage 1 (flag set)');
+                        console.log('Keyup event: Checking audioManager instance:', audioManager);
+                        
+                        // 1. Stop Stage 0 music & Start Stage 0 elements disappearing
+                        if (audioManager) {
+                            console.log('Keyup event: audioManager is available, attempting to stop music and play SFX.');
+                            audioManager.setStageMusic(null); // Stop stage 0 music
+                        } else {
+                            console.error('Keyup event: audioManager is NOT available here! Cannot stop music or play SFX.');
+                        }
+                        
+                        if (titleElement) {
+                            titleElement.classList.remove('flicker-effect'); 
+                            titleElement.style.opacity = '0';
+                            titleElement.style.pointerEvents = 'none';
+                        }
+
+                        if (window.currentGlobe && typeof window.currentGlobe.dissipate === 'function') {
+                            window.currentGlobe.dissipate(); // Start globe dissipation
+                        }
+
+                        // 2. Play transition SFX
+                        if (audioManager) { // Check again for playing SFX
+                            audioManager.playSound('stage1WelcomeSFX');
+                        }
+
+                        // 3. Delayed fade-in for Stage 1 Welcome message
+                        if (stage1WelcomeMessage) {
+                            // Ensure it's ready for transition (display block, opacity 0)
+                            stage1WelcomeMessage.style.display = 'block'; // Or 'flex' etc. depending on desired layout. It uses .stage-message class with opacity 0.
+                            // Add flicker effect if desired for stage 1 welcome, otherwise skip.
+                            // stage1WelcomeMessage.classList.add('flicker-effect'); 
+                            
+                            // Delay the fade-in to allow SFX to play or Stage 0 elements to disappear
+                            setTimeout(() => {
+                                requestAnimationFrame(() => { // Ensure display change is processed before opacity transition
+                                    stage1WelcomeMessage.style.opacity = '1';
+                                    stage1WelcomeMessage.style.pointerEvents = 'auto';
+                                });
+
+                                // 4. Play welcome voice after Stage 1 Welcome message transition ends
+                                stage1WelcomeMessage.addEventListener('transitionend', function onTransitionEnd() {
+                                    if (audioManager) { // Check again for playing voice
+                                        audioManager.playSound('stage1WelcomeVoiceZH');
+                                        
+                                        // Add event listener for when the welcome voice ends
+                                        const stage1WelcomeVoice = audioManager.sounds['stage1WelcomeVoiceZH'].element;
+                                        stage1WelcomeVoice.addEventListener('ended', function onVoiceEnded() {
+                                            console.log('Stage 1 welcome voice ended, waiting 3s before transitioning to Stage 2');
+                                            
+                                            // Wait 3 seconds before transitioning to Stage 2
+                                            setTimeout(() => {
+                                                transitionToStage2();
+                                            }, 3000);
+                                            
+                                            // Remove the event listener to prevent memory leaks
+                                            stage1WelcomeVoice.removeEventListener('ended', onVoiceEnded);
+                                        }, { once: true });
+                                    }
+                                    // Optional: Play Stage 1 music here
+                                    // if (window.audioManager) {
+                                    //     window.audioManager.setStageMusic('stage1Music'); // Assuming 'stage1Music' is loaded
+                                    // }
+                                    stage1WelcomeMessage.removeEventListener('transitionend', onTransitionEnd); // Clean up listener
+                                }, { once: true }); // Ensure listener fires only once
+
+                            }, 1000); // Adjust delay (in ms) as needed. E.g., 1000ms = 1 second
+                        }
+                    } else if (event.key === '1' && isTransitioningToStage1) {
+                        console.log('Key 1 pressed, but already transitioning to Stage 1. Ignoring.');
+                    }
+                    // Add other stage transitions here (e.g., else if (event.key === '2'))
+                });
+                
+                // Function to transition from Stage 1 to Stage 2
+                function transitionToStage2() {
+                    console.log('Transitioning to Stage 2');
+                    const stage1WelcomeMessage = document.getElementById('stage1-welcome-message');
+                    const stage2Container = document.getElementById('stage2-container');
+                    const stage2Title = document.getElementById('stage2-title');
+                    
+                    // 1. Fade out Stage 1 welcome message
+                    if (stage1WelcomeMessage) {
+                        stage1WelcomeMessage.style.opacity = '0';
+                        
+                        // Wait for fade out to complete
+                        stage1WelcomeMessage.addEventListener('transitionend', function onStage1FadeOut() {
+                            // Hide Stage 1 elements completely
+                            stage1WelcomeMessage.style.display = 'none';
+                            
+                            // Stage 2 transition (no sound effect)
+                            
+                            // 3. Show Stage 2 container
+                            if (stage2Container) {
+                                stage2Container.style.display = 'block';
+                                
+                                // Initialize 3D floorplan
+                                const floorplanRenderer = new FloorplanRenderer3D('floorplan-canvas');
+                                floorplanRenderer.init();
+                                floorplanRenderer.createFloorplan();
+                                floorplanRenderer.createFloor();
+                                floorplanRenderer.createWalls();
+                                floorplanRenderer.createFurniture();
+                                floorplanRenderer.createDecorations();
+                                floorplanRenderer.createEvidenceMarkers();
+                                floorplanRenderer.startAnimation();
+                                floorplanRenderer.show();
+                                
+                                // Store the renderer in window for later access
+                                window.floorplanRenderer = floorplanRenderer;
+                                
+                                // 4. Fade in Stage 2 title and scan instruction
+                                setTimeout(() => {
+                                    if (stage2Title) stage2Title.style.opacity = '1';
+                                    
+                                    // Show scan instruction after title appears
+                                    setTimeout(() => {
+                                        const scanInstruction = document.getElementById('scan-instruction');
+                                        if (scanInstruction) scanInstruction.style.opacity = '1';
+                                    }, 1000);
+                                    
+                                    // No background music for Stage 2
+                                }, 1000);
+                            }
+                            
+                            // Remove event listener
+                            stage1WelcomeMessage.removeEventListener('transitionend', onStage1FadeOut);
+                        }, { once: true });
+                    }
+                }
+            });
+
+            // Set initial stage music via AudioManager
+            // This ensures audioManager is initialized before being used by keydown listener
+            // which might fire before DOMContentLoaded if script is deferred or something similar (though unlikely here)
+            if (audioManager) { // Check if audioManager is initialized
+                audioManager.setStageMusic('stage0Music');
+            }
+        </script>
+    </body>
+</html>

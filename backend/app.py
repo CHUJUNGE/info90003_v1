@@ -1,8 +1,14 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, send_from_directory
+import os
 from .rfid_reader import RFIDReader # Assuming rfid_reader.py is in the same directory
 from .epc_mappings import get_name_for_epc # Assuming epc_mappings.py is in the same directory
 
-app = Flask(__name__)
+# Определяем путь к каталогу frontend относительно текущего файла (app.py)
+# app.py находится в backend/, frontend/ находится на одном уровне с backend/
+# поэтому нам нужно подняться на один уровень из backend/ и затем войти в frontend/
+FRONTEND_FOLDER = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'frontend')
+
+app = Flask(__name__, static_folder=FRONTEND_FOLDER) # <-- 修改这里，但主要通过路由提供
 
 # Initialize RFIDReader once if you want to keep the connection open (advanced)
 # For simplicity, we'll create it per request for now.
@@ -47,6 +53,19 @@ def scan_tag_api():
         # Ensure the reader is disconnected if it was connected outside scan_single_tag
         # However, our current RFIDReader.scan_single_tag handles its own connect/disconnect.
         pass
+
+# --- 新增前端路由 ---
+@app.route('/')
+def serve_index():
+    # Отправляем index.html из каталога FRONTEND_FOLDER
+    return send_from_directory(FRONTEND_FOLDER, 'index.html')
+
+@app.route('/<path:filename>')
+def serve_static(filename):
+    # Отправляем любой запрошенный файл из FRONTEND_FOLDER
+    # Это будет обрабатывать style.css, js/esp32.js и т.д.
+    return send_from_directory(FRONTEND_FOLDER, filename)
+# --- 结束新增前端路由 ---
 
 if __name__ == '__main__':
     # Make sure to run from the 'd:\info90003_v1' directory using:
