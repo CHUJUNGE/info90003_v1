@@ -55,6 +55,30 @@
                     <p class="scan-text">Scan the evidence to uncover the truth</p>
                 </div>
             </div>
+            <!-- Stage 3-1: RFID Scan Result for Cup -->
+            <div id="stage3-1-container" class="stage-message" style="display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center;">
+                <video id="rfid-scan-video" width="70%" height="auto" style="max-width: 800px; margin-bottom: 20px; border: 2px solid #00ff00;">
+                    <source src="assets/videos/cup_scan.mp4" type="video/mp4">
+                    您的浏览器不支持HTML5视频。
+                </video>
+                <p id="rfid-scan-message" style="font-size: 1.8em; color: #00ff00; text-shadow: 0 0 7px #00ff00, 0 0 10px #00ff00;"></p>
+                <img id="wife-image" src="assets/picture/wife.png" alt="Wife's Picture" style="display: none;">
+            </div>
+            <!-- Stage 4-1: Cup Movement Video -->
+            <div id="stage4-1-container" class="stage-message" style="display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center;">
+                <div style="position: relative; width: 70%; max-width: 800px;">
+                    <video id="cup-movement-video" width="100%" height="auto" style="margin-bottom: 20px; border: 2px solid #00ff00;" loop>
+                        <source src="assets/videos/cup_movement.mp4" type="video/mp4">
+                        您的浏览器不支持HTML5视频。
+                    </video>
+                    <div id="countdown-timer" style="position: absolute; top: 10px; right: 10px; font-size: 2.5em; color: #00ccff; font-weight: bold; text-shadow: 0 0 8px #0066ff; font-family: Arial, sans-serif; letter-spacing: 0px; display: none; border: 1px solid #00ccff; border-radius: 5px; padding: 2px 10px; background-color: rgba(0,10,20,0.7);">6</div>
+                </div>
+                <p id="cup-movement-message" style="font-size: 0.4em; color: #0091ff; text-shadow: 0 0 2px #00ccff;">Please try to perform the action to verify the action logic</p>
+            </div>
+            <!-- Stage 4-1-1: Action Reproduction Prompt -->
+            <div id="stage4-1-1-container" class="stage-message" style="display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center; height: 100%;">
+                <p id="action-reproduction-message" style="font-size: 1em; color: #00ccff; text-shadow: 0 0 10px #0066ff; font-family: Arial, sans-serif;">Please reproduce the action</p>
+            </div>
         </div>
 
         <!-- Audio element for stage-specific sounds -->
@@ -65,9 +89,11 @@
         <script src="js/esp32.js"></script> <!-- Ensure this is included -->
         <script src="js/AudioManager.js"></script> <!-- Include AudioManager -->
         <script src="js/3d-floorplan.js"></script> <!-- Include 3D Floorplan -->
+        <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script> <!-- Socket.IO Client for RFID -->
         <script type="module"> 
             let audioManager; 
             let isTransitioningToStage1 = false; // Flag to prevent multiple transitions
+            let currentStage = 'stage0'; // Initialize current application stage
 
             document.addEventListener('DOMContentLoaded', () => {
                 const modal = document.getElementById('esp32-connect-modal');
@@ -78,7 +104,8 @@
                 const statusIndicator = document.getElementById('esp32-status-indicator');
                 const statusText = document.getElementById('esp32-status-text');
 
-                let esp32Connection = null; 
+                let esp32Connection = null;
+            let rfidSocket = null; // Socket.IO connection for RFID backend 
 
                 // Initialize AudioManager - assign to the higher-scoped variable
                 audioManager = new AudioManager(); 
@@ -86,6 +113,11 @@
                 // Preload Stage 1 sounds
                 audioManager.loadSound('stage1WelcomeSFX', 'assets/audio/stage1_welcome_sfx.wav', false);
                 audioManager.loadSound('stage1WelcomeVoiceZH', 'assets/audio/stage1_welcome_voice_zh.mp3', false);
+                audioManager.loadSound('scanningSFX', 'assets/audio/scanning.wav', false);
+                audioManager.loadSound('cupScanAudio', 'assets/audio/cup_scan.mp3', false);
+                audioManager.loadSound('victimBioAudio', 'assets/audio/victim_biological.mp3', false);
+                audioManager.loadSound('cupMovementAudio', 'assets/audio/cup_scan.mp3', false); // 复用 cup_scan.mp3 作为 cup_movement.mp4 的音频
+                audioManager.loadSound('countdownBeeping', 'assets/audio/countdown_beeping.wav', false);
 
                 // Attempt to play Stage 0 music. If audio not unlocked, it will be queued and play on first interaction.
                 if (audioManager) { 
@@ -303,10 +335,58 @@
                     }
                     // Add other stage transitions here (e.g., else if (event.key === '2'))
                 });
+
+                // Initialize RFID Socket.IO connection
+                rfidSocket = io(); // Assumes Flask server is on the same host/port as this page
+
+                rfidSocket.on('connect', () => {
+                    console.log('Connected to RFID backend server (main_server.py).');
+                });
+
+                rfidSocket.on('disconnect', () => {
+                    console.log('Disconnected from RFID backend server.');
+                });
+
+                rfidSocket.on('rfid_data', (data) => {
+                    console.log('RFID data received from backend:', data);
+                    console.log('Checking for cup: currentStage is', currentStage, 'data.name is', data.name); // DEBUG LINE
+                    if (data.name === 'cup' && currentStage === 'stage2') { 
+                        console.log('"Cup" tag detected! Transitioning to Stage 3-1.');
+                        if (rfidSocket && rfidSocket.connected) {
+                           rfidSocket.emit('stop_rfid_scan'); // Tell backend to stop scanning ASAP
+                        }
+                        const rfidScanMessageEl = document.getElementById('rfid-scan-message');
+                        if (rfidScanMessageEl && data.message_en) {
+                            rfidScanMessageEl.textContent = data.message_en;
+                            console.log('DEBUG: Set rfid-scan-message textContent to:', rfidScanMessageEl.textContent); // DEBUG LINE
+                        } else {
+                            console.log('DEBUG: rfid-scan-message element or data.message_en not found. Element:', rfidScanMessageEl, 'data.message_en:', data.message_en); // DEBUG LINE
+                        }
+                        audioManager.playSound('scanningSFX');
+                        transitionToStage3_1();
+                    } else if (data.tag_id) {
+                        console.log('Another tag detected:', data.tag_id);
+                        // You could potentially display other detected tags if needed
+                    } else if (data.message === "No tag found"){
+                        console.log('Backend reports: No tag found in this scan attempt.');
+                    }
+                });
+
+                rfidSocket.on('rfid_error', (error) => {
+                    console.error('RFID Error from backend:', error.message);
+                    // Display this error to the user in a non-intrusive way if necessary
+                    // For example, update a status bar or show a temporary notification
+                });
+
+                rfidSocket.on('rfid_scan_stopped', (data) => {
+                    console.log('RFID scanning has been stopped by the backend.', data ? data.message : '');
+                });
                 
                 // Function to transition from Stage 1 to Stage 2
                 function transitionToStage2() {
                     console.log('Transitioning to Stage 2');
+                    currentStage = 'stage2'; // Update current stage
+
                     const stage1WelcomeMessage = document.getElementById('stage1-welcome-message');
                     const stage2Container = document.getElementById('stage2-container');
                     const stage2Title = document.getElementById('stage2-title');
@@ -352,15 +432,204 @@
                                     }, 1000);
                                     
                                     // No background music for Stage 2
-                                }, 1000);
-                            }
+
+                                    // Start RFID scanning when Stage 2 is fully ready
+                                    if (rfidSocket && rfidSocket.connected) {
+                                        console.log('Requesting backend to START RFID scan for Stage 2 (inside setTimeout).');
+                                        rfidSocket.emit('start_rfid_scan');
+                                    } else {
+                                        console.error('RFID socket not connected or available. Cannot start scan.');
+                                        // Consider attempting to connect if not connected, or queueing the start command.
+                                    }
+                                    }, 1000);
+                                }
                             
-                            // Remove event listener
-                            stage1WelcomeMessage.removeEventListener('transitionend', onStage1FadeOut);
+                                // Remove event listener
+                                stage1WelcomeMessage.removeEventListener('transitionend', onStage1FadeOut);
+                            }, { once: true });
+                        }
+                    }
+                }); // END of transitionToStage2 function's event listener logic, BEFORE new function definition
+
+                // Function to transition to Stage 3-1 (Cup Scan)
+                function transitionToStage3_1() {
+                    console.log('Transitioning to Stage 3-1 for Cup Scan');
+                    const stage2Container = document.getElementById('stage2-container');
+                    const stage3_1Container = document.getElementById('stage3-1-container');
+                    const rfidScanVideo = document.getElementById('rfid-scan-video');
+                    const rfidScanMessage = document.getElementById('rfid-scan-message');
+
+                    // 1. Fade out Stage 2 elements
+                    if (stage2Container) {
+                        stage2Container.style.opacity = '0';
+                        if (window.floorplanRenderer && typeof window.floorplanRenderer.stopAnimation === 'function') {
+                            window.floorplanRenderer.stopAnimation(); // Stop 3D rendering
+                        }
+                        // After fade out, hide it to prevent interaction
+                        stage2Container.addEventListener('transitionend', function onStage2FadeOut() {
+                            stage2Container.style.display = 'none';
+                            stage2Container.removeEventListener('transitionend', onStage2FadeOut);
                         }, { once: true });
                     }
+
+                    // 2. Prepare and show Stage 3-1 elements
+                    if (stage3_1Container && rfidScanVideo && rfidScanMessage) {
+                        // rfidScanMessage.textContent = '证物-cup正在被扫描.'; // Message is now set by rfid_data listener
+                        stage3_1Container.style.display = 'flex'; // Use flex for centering (as per new HTML structure)
+                        
+                        // Ensure display is set before starting opacity transition (critical for some browsers)
+                        requestAnimationFrame(() => {
+                            stage3_1Container.style.opacity = '1';
+                            console.log('DEBUG: rfid-scan-message in transitionToStage3_1 - textContent:', rfidScanMessage.textContent, 'offsetHeight:', rfidScanMessage.offsetHeight); // DEBUG LINE
+                            rfidScanVideo.currentTime = 0; // Rewind video to start
+                            rfidScanVideo.play().catch(error => {
+                                console.error("Video play failed:", error);
+                            }); // End of video.play().catch()
+                            audioManager.playSound('cupScanAudio');
+
+                            rfidScanVideo.onended = () => {
+                                console.log('Cup scan video finished.');
+                                rfidScanVideo.style.display = 'none'; // Hide video
+                                const wifeImage = document.getElementById('wife-image');
+                                if (wifeImage) {
+                                    wifeImage.style.display = 'block'; // Show image
+                                    wifeImage.classList.add('glitch-image-effect'); // Add glitch effect
+                                }
+                                audioManager.stopSound('cupScanAudio'); // Stop previous audio
+                                audioManager.playSound('victimBioAudio'); // Play new audio
+                                
+                                // Listen for victimBioAudio ended event
+                                const victimBioAudioElement = audioManager.sounds['victimBioAudio'].element;
+                                victimBioAudioElement.addEventListener('ended', function onVictimBioAudioEnded() {
+                                    console.log('Victim biological audio ended, waiting 2s before transitioning to Stage 4-1');
+                                    
+                                    // Wait 2 seconds before transitioning to Stage 4-1
+                                    setTimeout(() => {
+                                        transitionToStage4_1();
+                                    }, 2000);
+                                    
+                                    // Remove the event listener to prevent memory leaks
+                                    victimBioAudioElement.removeEventListener('ended', onVictimBioAudioEnded);
+                                }, { once: true });
+                            };
+                        }); // End of requestAnimationFrame callback
+                            // Example: Fade out Stage 3-1 after video
+                            // setTimeout(() => {
+                            //    stage3_1Container.style.opacity = '0';
+                            //    stage3_1Container.addEventListener('transitionend', () => stage3_1Container.style.display = 'none', { once: true });
+                            // }, 1000); // Delay before fading out
+                    } else {
+                        console.error('Stage 3-1 elements not found!');
+                    }
                 }
-            });
+
+                // Function to transition to Stage 4-1 (Cup Movement)
+                function transitionToStage4_1() {
+                    console.log('Transitioning to Stage 4-1 for Cup Movement');
+                    const stage3_1Container = document.getElementById('stage3-1-container');
+                    const stage4_1Container = document.getElementById('stage4-1-container');
+                    const cupMovementVideo = document.getElementById('cup-movement-video');
+                    const cupMovementMessage = document.getElementById('cup-movement-message');
+
+                    // 1. Fade out Stage 3-1 elements
+                    if (stage3_1Container) {
+                        stage3_1Container.style.opacity = '0';
+                        // After fade out, hide it to prevent interaction
+                        stage3_1Container.addEventListener('transitionend', function onStage3_1FadeOut() {
+                            stage3_1Container.style.display = 'none';
+                            stage3_1Container.removeEventListener('transitionend', onStage3_1FadeOut);
+                        }, { once: true });
+                    }
+
+                    // 2. Prepare and show Stage 4-1 elements
+                    if (stage4_1Container && cupMovementVideo && cupMovementMessage) {
+                        stage4_1Container.style.display = 'flex'; // Use flex for centering
+                        
+                        // Ensure display is set before starting opacity transition
+                        requestAnimationFrame(() => {
+                            stage4_1Container.style.opacity = '1';
+                            cupMovementVideo.currentTime = 0; // Rewind video to start
+                            cupMovementVideo.play().catch(error => {
+                                console.error("Cup movement video play failed:", error);
+                            });
+                            // 不播放音频，让视频静音播放
+
+                            // 在视频播放 3 秒后显示倒计时并播放音频
+                            setTimeout(() => {
+                                const countdownTimer = document.getElementById('countdown-timer');
+                                if (countdownTimer) {
+                                    countdownTimer.style.display = 'block';
+                                    let countdown = 6;
+                                    countdownTimer.textContent = countdown;
+                                    
+                                    // 播放倒计时音频
+                                    audioManager.playSound('countdownBeeping');
+                                    
+                                    // 获取倒计时音频元素
+                                    const countdownAudio = audioManager.sounds['countdownBeeping'].element;
+                                    
+                                    // 监听倒计时音频结束事件
+                                    countdownAudio.addEventListener('ended', () => {
+                                        console.log('Countdown audio ended, transitioning to stage4-1-1');
+                                        // 停止视频循环播放
+                                        cupMovementVideo.loop = false;
+                                        // 过渡到 stage4-1-1
+                                        transitionToStage4_1_1();
+                                    }, { once: true });
+                                    
+                                    // 倒计时定时器
+                                    const countdownInterval = setInterval(() => {
+                                        countdown--;
+                                        if (countdown <= 0) {
+                                            clearInterval(countdownInterval);
+                                            countdownTimer.style.display = 'none';
+                                            // 倒计时结束后的操作（如果需要）
+                                        } else {
+                                            countdownTimer.textContent = countdown;
+                                        }
+                                    }, 1000);
+                                }
+                            }, 3000);
+
+                            cupMovementVideo.onended = () => {
+                                console.log('Cup movement video finished.');
+                                // Optional: Define what happens after cup movement video ends
+                                // For example, transition to another stage or show additional information
+                            };
+                        }); // End of requestAnimationFrame callback
+                    } else {
+                        console.error('Stage 4-1 elements not found!');
+                    }
+                }
+
+                // Function to transition to Stage 4-1-1 (Action Reproduction Prompt)
+                function transitionToStage4_1_1() {
+                    console.log('Transitioning to Stage 4-1-1 for Action Reproduction');
+                    const stage4_1Container = document.getElementById('stage4-1-container');
+                    const stage4_1_1Container = document.getElementById('stage4-1-1-container');
+
+                    // 1. Fade out Stage 4-1 elements
+                    if (stage4_1Container) {
+                        stage4_1Container.style.opacity = '0';
+                        // After fade out, hide it to prevent interaction
+                        stage4_1Container.addEventListener('transitionend', function onStage4_1FadeOut() {
+                            stage4_1Container.style.display = 'none';
+                            stage4_1Container.removeEventListener('transitionend', onStage4_1FadeOut);
+                        }, { once: true });
+                    }
+
+                    // 2. Prepare and show Stage 4-1-1 elements
+                    if (stage4_1_1Container) {
+                        stage4_1_1Container.style.display = 'flex'; // Use flex for centering
+                        
+                        // Ensure display is set before starting opacity transition
+                        requestAnimationFrame(() => {
+                            stage4_1_1Container.style.opacity = '1';
+                        });
+                    } else {
+                        console.error('Stage 4-1-1 elements not found!');
+                    }
+                }
 
             // Set initial stage music via AudioManager
             // This ensures audioManager is initialized before being used by keydown listener

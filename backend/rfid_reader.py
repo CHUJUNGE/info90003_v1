@@ -1,6 +1,6 @@
 import serial
 import time
-from .epc_mappings import get_name_for_epc
+from epc_mappings import get_name_for_epc # epc_mappings is in the same directory
 
 # Module-level helper function for checksum calculation
 def calculate_checksum(data_list):
@@ -14,29 +14,35 @@ class RFIDReader:
     def __init__(self, port=DEFAULT_SERIAL_PORT, baudrate=DEFAULT_BAUD_RATE, timeout=1):
         self.port = port
         self.baudrate = baudrate
-        self.timeout = timeout
+        self.timeout = timeout # Default timeout for serial read operations
         self.serial_conn = None
         self.is_connected = False
 
     def connect(self):
-        if self.is_connected:
+        if self.is_connected and self.serial_conn and self.serial_conn.is_open:
+            # print(f"RFID Reader: Already connected to {self.port}.")
             return True
         try:
+            # Ensure previous connection is closed if object is reused
+            if self.serial_conn and self.serial_conn.is_open:
+                self.serial_conn.close()
+            
             self.serial_conn = serial.Serial(self.port, self.baudrate, timeout=self.timeout)
             self.is_connected = True
-            # print(f"Successfully connected to {self.port} at {self.baudrate} baud.")
+            # print(f"RFID Reader: Successfully connected to {self.port} at {self.baudrate} baud.")
             return True
         except serial.SerialException as e:
             print(f"RFID Reader: Serial connection error on {self.port}: {e}")
             self.is_connected = False
+            self.serial_conn = None # Ensure serial_conn is None on failure
             return False
 
     def disconnect(self):
         if self.serial_conn and self.serial_conn.is_open:
             self.serial_conn.close()
         self.is_connected = False
-        self.serial_conn = None # Important to reset
         # print("RFID Reader: Serial port closed.")
+        # self.serial_conn = None # Option to fully reset, or leave for potential re-open
 
     def _build_command_frame(self, command_type, command_code, params=None):
         if params is None:
@@ -60,18 +66,14 @@ class RFIDReader:
         if not response_bytes:
             return {"status": "error", "message": "No response from reader (timeout likely)."}
         
-        # Debug print for raw response
-        print(f"RFID Reader DEBUG: Raw response_bytes (len={len(response_bytes)}): {response_bytes.hex().upper() if response_bytes else 'None'}")
+        # print(f"RFID Reader DEBUG: Raw response_bytes (len={len(response_bytes)}): {response_bytes.hex().upper() if response_bytes else 'None'}")
 
-        # Minimum length for any valid frame (e.g., error response is 8 bytes)
-        if len(response_bytes) < 8:
+        if len(response_bytes) < 8: # Minimum length for any valid frame
             return {"status": "error", "message": f"Response too short ({len(response_bytes)} bytes): {response_bytes.hex().upper()}"}
 
         if response_bytes[0] != 0xBB or response_bytes[-1] != 0x7E:
             return {"status": "error", "message": f"Invalid frame start/end bytes: {response_bytes.hex().upper()}"}
         
-        # Verify checksum of the received frame
-        # Data for checksum: Type, Cmd, PL_MSB, PL_LSB, ..., up to (but not including) CHK byte
         data_for_checksum_calc = list(response_bytes[1:-2])
         received_checksum_byte = response_bytes[-2]
         calculated_response_checksum = calculate_checksum(data_for_checksum_calc)
@@ -83,136 +85,150 @@ class RFIDReader:
         command_code_resp = response_bytes[2]
         param_len_resp = (response_bytes[3] << 8) + response_bytes[4]
 
-        # Case 1: Tag successfully read (response to command 0x22)
-        # Format: BB 02 22 00 11 RSSI(1B) PC(2B) EPC(12B) Tag_CRC(2B) CHK(1B) 7E
-        if frame_type == 0x02 and command_code_resp == 0x22:
-            expected_total_len = 1 + 1 + 1 + 2 + param_len_resp + 1 + 1 # BB+Type+Cmd+PL+Params+CHK+7E
-            if len(response_bytes) != expected_total_len:
-                 return {"status": "error", "message": f"Successful read response length mismatch. Expected {expected_total_len}, Got {len(response_bytes)} bytes."}
-            if param_len_resp != 17: # RSSI(1) + PC(2) + EPC(12) + Tag_CRC(2) = 17
-                return {"status": "error", "message": f"Unexpected parameter length in success response: {param_len_resp}. Expected 17."}
-
-            rssi_raw = response_bytes[5]
-            rssi_dbm = rssi_raw if rssi_raw <= 127 else rssi_raw - 256 # Convert to signed byte
-            pc_hex = response_bytes[6:8].hex().upper()
-            epc_hex = response_bytes[8:20].hex().upper()
-            # tag_crc_hex = response_bytes[20:22].hex().upper() # CRC from tag itself, not usually used by app
+        if frame_type == 0x02 and command_code_resp == 0x22: # Tag successfully read
+            expected_params_len = 1 + 2 + 12 + 2 # RSSI(1) + PC(2) + EPC(12) + Tag_CRC(2) = 17 bytes
+            if param_len_resp != expected_params_len:
+                return {"status": "error", "message": f"Unexpected parameter length for tag data. Expected {expected_params_len}, Got {param_len_resp}."}
             
+            params_start_index = 5
+            rssi_raw = response_bytes[params_start_index]
+            # RSSI conversion: Signed byte, (Value - 129) dBm according to some reader docs
+            # Or just use raw if specific conversion isn't clear for E720 module series.
+            # For now, let's assume it's a direct value or a placeholder.
+            rssi_dbm = rssi_raw # Placeholder, actual conversion might be needed.
+
+            pc_bytes = response_bytes[params_start_index+1 : params_start_index+1+2]
+            pc_hex = pc_bytes.hex().upper()
+            
+            epc_bytes = response_bytes[params_start_index+1+2 : params_start_index+1+2+12]
+            epc_hex = epc_bytes.hex().upper()
+            
+            # tag_crc_bytes = response_bytes[params_start_index+1+2+12 : params_start_index+1+2+12+2]
+            # tag_crc_hex = tag_crc_bytes.hex().upper()
+
             return {
-                "status": "success",
-                "rssi_dbm": rssi_dbm,
+                "status": "success", 
+                "epc_hex": epc_hex, 
+                "rssi_dbm": rssi_dbm, 
                 "pc_hex": pc_hex,
-                "epc_hex": epc_hex
+                "message": "Tag found."
             }
         
-        # Case 2: No tag found (response to command 0x22)
-        # Format: BB 01 FF 00 01 ERR_CODE CHK 7E
-        elif frame_type == 0x01 and command_code_resp == 0xFF:
-            expected_total_len = 1 + 1 + 1 + 2 + param_len_resp + 1 + 1
-            if len(response_bytes) != expected_total_len:
-                 return {"status": "error", "message": f"No-tag/Error response length mismatch. Expected {expected_total_len}, Got {len(response_bytes)} bytes."}
-            if param_len_resp != 1: # Error code is 1 byte
-                 return {"status": "error", "message": f"Unexpected parameter length in no-tag/error response: {param_len_resp}. Expected 1."}
-
-            error_code = response_bytes[5]
-            if error_code == 0x15: # Error code 0x15 means "No tag inventoried"
-                return {"status": "no_tag_found"}
+        elif frame_type == 0x01 and command_code_resp == 0xFF: # Operation failed or no tag
+            error_code = response_bytes[5] # Assuming error code is at index 5
+            if error_code == 0x15: # Specific error code for "No tag inventoried"
+                return {"status": "no_tag_found", "message": "No tag found in inventory."}
             else:
-                return {"status": "reader_error", "error_code": f"0x{error_code:02X}"}
+                return {"status": "error", "message": f"Reader error code: {error_code:02X}."}
+        
+        else: # Unknown response type
+            return {"status": "error", "message": f"Unknown response frame type: {frame_type:02X}, command: {command_code_resp:02X}. Full: {response_bytes.hex().upper()}"}
 
-        else:
-            return {"status": "unknown_response", "raw_response": response_bytes.hex().upper()}
+    def _perform_scan_attempt(self):
+        """
+        Performs a single RFID scan attempt. Assumes serial connection is ALREADY OPEN.
+        This method does not manage connect/disconnect.
+        Returns:
+            dict: Parsed response from the reader.
+        """
+        if not self.is_connected or not self.serial_conn or not self.serial_conn.is_open:
+            return {"status": "error", "message": "Serial port not connected or not open."}
 
-    def scan_single_tag(self, wait_for_tag_timeout=60):
-        """Scans for a single RFID tag.
+        command = self._get_single_inventory_command()
+        try:
+            self.serial_conn.write(command)
+            # The E720 module's response time is typically very fast.
+            # A small explicit sleep here can be counterproductive if the serial timeout is set appropriately.
+            # Rely on serial.Serial(timeout=...) for read operations.
+            response_bytes = self.serial_conn.read(64) # Read up to 64 bytes
+            return self._parse_response_data(response_bytes)
+        except serial.SerialTimeoutException:
+            return {"status": "error", "message": "Serial read timeout during scan attempt."}
+        except serial.SerialException as e:
+            return {"status": "error", "message": f"Serial communication error during scan: {str(e)}"}
 
+    def scan_single_tag(self, wait_for_tag_timeout=10):
+        """
+        Scans for a single RFID tag, managing its own connection.
         Continuously tries to read a tag until one is found or the timeout is reached.
 
         Args:
             wait_for_tag_timeout (int, optional): Maximum time in seconds to wait for a tag.
-                                                 Defaults to 60 seconds.
-                                                 If 0 or None, it will try only once.
-
+                                                  If 0 or None, tries once.
         Returns:
             dict: A dictionary containing the scan result.
-                  Keys might include 'status', 'epc_hex', 'rssi_dbm', 'pc_hex', 'message'.
         """
-        if not self.connect(): # Try to connect first
+        if not self.connect(): # Ensure connection
             return {"status": "error", "message": f"Failed to connect to serial port {self.port}"}
 
         start_time = time.time()
         try:
             while True:
-                command = self._get_single_inventory_command()
-                # print(f"RFID Reader: Sending command: {command.hex().upper()}")
-                try:
-                    self.serial_conn.write(command)
-                except serial.SerialException as e:
-                    return {"status": "error", "message": f"Serial write error: {str(e)}"}
-                
-                # Wait a brief moment for the reader to process and respond
-                # The E720 reader is quite fast, but a small delay might be needed if issues occur.
-                # time.sleep(0.05) # 50ms, adjust if necessary
-                
-                try:
-                    response_bytes = self.serial_conn.read(64) # Read up to 64 bytes, adjust size if needed
-                except serial.SerialTimeoutException:
-                    # This can happen if timeout is very short and no tag is present
-                    response_bytes = b'' 
-                except serial.SerialException as e:
-                    return {"status": "error", "message": f"Serial read error: {str(e)}"}
-
-                # Debug print for raw response if needed during development
-                # print(f"RFID Reader DEBUG: Raw response_bytes (len={len(response_bytes)}): {response_bytes.hex().upper() if response_bytes else 'None'}")
-
-                parsed_data = self._parse_response_data(response_bytes)
+                parsed_data = self._perform_scan_attempt()
 
                 if parsed_data.get("status") == "success":
-                    return parsed_data # Tag found, return immediately
+                    return parsed_data # Tag found
                 
                 # If not success, check for timeout or if single attempt was requested
                 if wait_for_tag_timeout is None or wait_for_tag_timeout <= 0:
-                    return parsed_data # Return whatever was found (e.g., no_tag_found or error)
+                    # If timeout is 0/None, this was a single attempt. Return its result.
+                    return parsed_data 
                 
                 if (time.time() - start_time) > wait_for_tag_timeout:
+                    # Timeout reached, return last status (could be no_tag_found or an error)
+                    # If last attempt was an error, return that. Otherwise, specific timeout message.
+                    if parsed_data.get("status") == "error":
+                        return parsed_data 
                     return {"status": "no_tag_found", "message": f"Timeout: No tag found within {wait_for_tag_timeout} seconds."}
                 
-                time.sleep(0.1) # Brief pause before retrying to avoid busy-looping and give reader a chance
-
+                time.sleep(0.05) # Brief pause before retrying to avoid busy-looping.
+                                # Adjust if necessary. Should be short.
         finally:
-            self.disconnect()
+            self.disconnect() # Always disconnect when this method exits
         
-        # Should not be reached if logic is correct, but as a fallback:
+        # Fallback, should ideally not be reached due to logic above.
         return {"status": "error", "message": "Scan ended unexpectedly."}
-
 
 if __name__ == "__main__":
     print("Testing RFIDReader class...")
-    reader = RFIDReader() # Use default port defined in class
+    # Test with default port defined in class, or specify one:
+    # reader = RFIDReader(port="COM_YOUR_READER") 
+    reader = RFIDReader() 
 
-    print("\nAttempting to scan a tag (will wait up to 10 seconds)...")
-    # Test with a longer timeout
-    result = reader.scan_single_tag(wait_for_tag_timeout=10) 
-    print(f"Scan Result: {result}")
-    if result.get("status") == "success":
-        epc = result.get("epc_hex")
-        if epc:
-            human_name = get_name_for_epc(epc)
-            if human_name:
-                print(f"--> This tag is known as: {human_name}")
-            else:
-                print(f"--> This tag EPC ({epc}) is not found in the current mappings.")
+    print("\nAttempting to connect...")
+    if reader.connect():
+        print("Connected successfully. Performing a single scan attempt using _perform_scan_attempt...")
+        result_attempt = reader._perform_scan_attempt()
+        print(f"Single Attempt Result: {result_attempt}")
+        if result_attempt.get("status") == "success":
+            epc = result_attempt.get("epc_hex")
+            name = get_name_for_epc(epc)
+            print(f"--> EPC: {epc}, Name: {name if name else 'Unknown'}")
+        reader.disconnect()
+        print("Disconnected.")
+    else:
+        print("Failed to connect for single attempt test.")
 
-    print("\nAttempting to scan again (will try once, effectively a quick scan)...")
-    result_quick = reader.scan_single_tag(wait_for_tag_timeout=0)
+    print("\nTesting scan_single_tag (will wait up to 5 seconds)...")
+    result_timed = reader.scan_single_tag(wait_for_tag_timeout=5) 
+    print(f"Timed Scan Result: {result_timed}")
+    if result_timed.get("status") == "success":
+        epc_timed = result_timed.get("epc_hex")
+        human_name_timed = get_name_for_epc(epc_timed)
+        if human_name_timed:
+            print(f"--> This tag is known as: {human_name_timed}")
+        else:
+            print(f"--> This tag EPC ({epc_timed}) is not found in the current mappings.")
+
+    print("\nTesting scan_single_tag (quick scan, one attempt)...")
+    result_quick = reader.scan_single_tag(wait_for_tag_timeout=0) # or wait_for_tag_timeout=None
     print(f"Quick Scan Result: {result_quick}")
     if result_quick.get("status") == "success":
         epc_quick = result_quick.get("epc_hex")
-        if epc_quick:
-            human_name_quick = get_name_for_epc(epc_quick)
-            if human_name_quick:
-                print(f"--> This tag is known as: {human_name_quick}")
-            else:
-                print(f"--> This tag EPC ({epc_quick}) is not found in the current mappings.")
-
+        human_name_quick = get_name_for_epc(epc_quick)
+        if human_name_quick:
+            print(f"--> This tag is known as: {human_name_quick}")
+        else:
+            print(f"--> This tag EPC ({epc_quick}) is not found in the current mappings.")
+    
     print("\nRFIDReader test finished.")

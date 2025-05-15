@@ -199,7 +199,101 @@ html.fullscreen-active #fullscreen-btn {
 
 #esp32-modal-status {
     margin-top: 20px;
-    font-style: italic;
+}
+
+#rfid-scan-video, #cup-movement-video {
+    outline: none !important; /* !important to override potential browser defaults forcefully */
+    border: none !important;   /* !important to override potential browser defaults forcefully */
+    box-shadow: none !important; /* Also remove any potential box-shadow */
+    max-width: 80%; /* Occupy up to 80% of the container's width */
+    max-height: 75vh; /* Occupy up to 75% of the viewport's height */
+    width: auto; /* Maintain aspect ratio based on height constraint */
+    height: auto; /* Maintain aspect ratio based on width constraint */
+    object-fit: contain; /* Ensures the entire video is scaled to fit within these bounds */
+    margin-top: 5vh; /* Push the video down from the top of its flex-centered position */
+}
+
+#rfid-scan-message {
+    color: #00ccff; /* Bright tech blue */
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 2.5em; /* Adjusted based on screenshot, can be tweaked */
+    font-weight: bold;
+    text-shadow: 
+        0 0 5px #00ccff, 
+        0 0 10px #00ccff, 
+        0 0 15px #00ccff, 
+        0 0 20px #00aaff; /* Slightly deeper blue for outer glow */
+    text-align: center; /* Ensure it's centered */
+    margin-top: 20px; /* Add some space above the message */
+}
+
+#wife-image {
+    display: none; /* Initially hidden, JS will show it */
+    max-width: 80%; /* Match video size */
+    max-height: 75vh; /* Match video size */
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    margin-top: 5vh; /* Match video margin-top */
+    border-radius: 8px; /* Optional: if you like rounded corners */
+}
+
+@keyframes hardcoreGlitch {
+  0% {
+    transform: translate(0, 0) skew(0deg);
+    opacity: 1;
+  }
+  5% {
+    transform: translate(-2px, 1px) skew(-2deg);
+    opacity: 0.85;
+  }
+  10% {
+    transform: translate(0, 0) skew(0deg);
+    opacity: 1;
+  }
+  25% {
+    transform: translate(2px, -1px) skew(2deg);
+    opacity: 0.7;
+  }
+  30% {
+    transform: translate(0, 0) skew(0deg);
+    opacity: 1;
+  }
+  40% {
+    opacity: 0.9;
+  }
+  50% {
+    transform: translate(-1px, 2px) skew(-1deg);
+    opacity: 0.6;
+  }
+  51% {
+    transform: translate(0, 0) skew(0deg);
+    opacity: 1;
+  }
+  65% {
+    transform: translate(1px, -2px) skew(1deg);
+    opacity: 0.75;
+  }
+  70% {
+    transform: translate(0, 0) skew(0deg);
+    opacity: 1;
+  }
+  80% { /* Add a more noticeable jump */
+    transform: translate(-3px, 3px) skew(-3deg);
+    opacity: 0.5;
+  }
+  81% {
+    transform: translate(0,0) skew(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(0, 0) skew(0deg);
+    opacity: 1;
+  }
+}
+
+.glitch-image-effect {
+  animation: hardcoreGlitch 0.7s infinite steps(1, end);
 }
 
 /* ESP32 Status Indicator Styles */
