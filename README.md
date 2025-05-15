@@ -136,7 +136,9 @@ This repository contains the interactive crime scene reconstruction system proje
 - 声音系统: html5 audio
 - 灯光控制: arduino
 - 马达控制: arduino
-
+PS D:\info90003_v1> .\\.venv\Scripts\activate
+(.venv) PS D:\info90003_v1> cd 'd:\info90003_v1'
+(.venv) PS D:\info90003_v1> python backend/main_server.py
 ## 项目结构 (Project Structure)
 
 [项目结构将在开发过程中更新]

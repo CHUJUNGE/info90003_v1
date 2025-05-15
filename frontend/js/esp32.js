@@ -1,9 +1,10 @@
 /**
  * ESP32通信模块 - 用于与ESP32建立WebSocket连接并交换数据
+ * 适配ESP32 Arduino WebSocket服务器
  */
 
 class ESP32Connection {
-    constructor(serverIP, port = 81) {
+    constructor(serverIP, port = 80) {
       this.serverIP = serverIP;
       this.port = port;
       this.socket = null;
@@ -16,31 +17,39 @@ class ESP32Connection {
       this.connectionTimeout = null;
       this.heartbeatTimeout = null;
       this.isManualDisconnect = false;
+      this.deviceId = null; // 存储设备ID
     }
   
     // 连接到ESP32 WebSocket服务器
     connect() {
       // 尝试多种URL格式
       let wsUrl;
-      if (this.connectAttempt === undefined || this.connectAttempt >= 3) {
+      if (this.connectAttempt === undefined || this.connectAttempt >= 4) {
         this.connectAttempt = 0;
       }
       
       // 轮流尝试不同的URL格式
       switch(this.connectAttempt) {
         case 0:
+          // 标准格式：IP:端口/ws
           wsUrl = `ws://${this.serverIP}:${this.port}/ws`;
           break;
         case 1:
+          // 仅IP和端口
           wsUrl = `ws://${this.serverIP}:${this.port}`;
           break;
         case 2:
+          // IP和默认路径
+          wsUrl = `ws://${this.serverIP}/ws`;
+          break;
+        case 3:
+          // 尝试mDNS名称（如果serverIP是crimescene.local或类似格式）
           wsUrl = `ws://${this.serverIP}/ws`;
           break;
       }
       
       this.connectAttempt++;
-      console.log(`正在连接到ESP32 (尝试 ${this.connectAttempt}/3): ${wsUrl}`);
+      console.log(`正在连接到ESP32 (尝试 ${this.connectAttempt}/4): ${wsUrl}`);
       
       // 如果已经有连接，先关闭
       if (this.socket) {
@@ -52,6 +61,7 @@ class ESP32Connection {
       }
       
       try {
+        console.log(`尝试连接到ESP32 WebSocket: ${wsUrl}`);
         this.socket = new WebSocket(wsUrl);
         
         // 设置连接超时
@@ -60,7 +70,7 @@ class ESP32Connection {
             console.log('连接超时');
             this.socket.close();
           }
-        }, 10000); // 10秒连接超时
+        }, 5000); // 5秒连接超时，更快地尝试下一个URL格式
         
         this.socket.onopen = () => {
           console.log('已连接到ESP32');
@@ -75,6 +85,11 @@ class ESP32Connection {
           
           // 设置心跳检测
           this.setupHeartbeat();
+          
+          // 获取设备状态
+          setTimeout(() => {
+            this.sendCommand('getStatus');
+          }, 500);
           
           // 触发回调
           this.onConnectCallbacks.forEach(callback => callback());
@@ -92,10 +107,29 @@ class ESP32Connection {
           try {
             const data = JSON.parse(event.data);
             console.log('解析后的JSON数据:', data);
-            console.log('消息类型:', data.type);
-            if (data.type === 'stage_transition') {
-              console.log('检测到Stage切换消息，stage值:', data.stage);
+            
+            // 处理特殊消息类型
+            if (data.type === 'connection' && data.status === 'connected') {
+              // 存储设备ID
+              this.deviceId = data.deviceId || 'unknown';
+              console.log(`已连接到设备: ${this.deviceId}`);
+            } else if (data.command === 'pong') {
+              console.log('收到心跳响应');
+              // 心跳响应不需要传递给回调
+              return;
+            } else if (data.type) {
+              console.log('消息类型:', data.type);
+              // 特殊类型消息处理
+              if (data.type === 'stage_transition') {
+                console.log('检测到Stage切换消息，stage值:', data.stage);
+              } else if (data.type === 'mpuData') {
+                console.log('收到MPU数据');
+              } else if (data.type === 'deviceStatus') {
+                console.log('收到设备状态');
+              }
             }
+            
+            // 传递给所有回调
             this.onDataCallbacks.forEach(callback => callback(data));
           } catch (e) {
             console.error('JSON解析错误:', e);
@@ -119,10 +153,14 @@ class ESP32Connection {
             this.heartbeatTimeout = null;
           }
           
+          // 保存断开连接的事件信息
+          this.lastCloseEvent = event;
+          
           // 只有当前是连接状态时才触发断开回调
           if (this.isConnected) {
             this.isConnected = false;
-            this.onDisconnectCallbacks.forEach(callback => callback());
+            // 传递断开连接的事件信息给回调函数
+            this.onDisconnectCallbacks.forEach(callback => callback(event));
           }
           
           // 如果不是主动关闭，尝试重连
@@ -173,18 +211,22 @@ class ESP32Connection {
         if (this.isConnected && this.socket && this.socket.readyState === WebSocket.OPEN) {
           try {
             this.sendCommand('ping');
+            console.log('已发送心跳ping');
             
             // 设置响应超时
             this.heartbeatTimeout = setTimeout(() => {
               console.log('心跳无响应，重新连接');
               this.resetAndReconnect();
-            }, 5000);
+            }, 3000); // 3秒等待响应
           } catch (e) {
             console.error('发送心跳失败:', e);
             this.resetAndReconnect();
           }
+        } else {
+          console.log('连接已断开，尝试重连');
+          this.resetAndReconnect();
         }
-      }, 30000); // 30秒发送一次心跳
+      }, 15000); // 15秒发送一次心跳，与ESP32端更匹配
     }
     
     // 发送数据到ESP32
@@ -208,12 +250,14 @@ class ESP32Connection {
     
     // 发送命令到ESP32
     sendCommand(command, params = {}) {
+      // 构建与ESP32 Arduino代码兼容的命令格式
       const data = {
         command,
         ...params,
         timestamp: Date.now()
       };
       
+      console.log(`发送命令: ${command}`, params);
       return this.sendData(data);
     }
     
@@ -259,8 +303,28 @@ class ESP32Connection {
           this.socket.close(1000, '主动断开');
         } catch (e) {
           console.error('关闭连接时出错:', e);
+          
+          // 如果关闭失败，手动触发断开回调
+          if (this.isConnected) {
+            this.isConnected = false;
+            const mockEvent = {
+              code: 1000,
+              reason: '主动断开',
+              wasClean: true
+            };
+            this.onDisconnectCallbacks.forEach(callback => callback(mockEvent));
+          }
         }
         this.socket = null;
+      } else if (this.isConnected) {
+        // 如果没有socket但标记为已连接，也需要触发断开回调
+        this.isConnected = false;
+        const mockEvent = {
+          code: 1000,
+          reason: '主动断开',
+          wasClean: true
+        };
+        this.onDisconnectCallbacks.forEach(callback => callback(mockEvent));
       }
       
       this.isConnected = false;
@@ -285,6 +349,13 @@ class ESP32Connection {
         this.heartbeatTimeout = null;
       }
       
+      // 如果是手动断开，不自动重连
+      if (this.isManualDisconnect) {
+        console.log('手动断开连接，不自动重连');
+        return;
+      }
+      
+      // 重置连接尝试计数
       this.reconnectAttempts = 0;
       
       if (this.socket) {
@@ -296,13 +367,51 @@ class ESP32Connection {
         this.socket = null;
       }
       
+      // 标记为断开连接
+      if (this.isConnected) {
+        this.isConnected = false;
+        // 创建一个模拟的关闭事件
+        const mockEvent = {
+          code: 1001,
+          reason: '连接重置',
+          wasClean: false
+        };
+        // 触发断开连接回调
+        this.onDisconnectCallbacks.forEach(callback => callback(mockEvent));
+      }
+      
       // 等待短暂停后重连
+      console.log('准备重新连接...');
       setTimeout(() => {
         this.connect();
       }, 1000);
     }
   }
   
+  // 添加常用命令的快捷方法
+  ESP32Connection.prototype.getLedMode = function() {
+    return this.sendCommand('getStatus');
+  };
+  
+  ESP32Connection.prototype.setLedMode = function(mode) {
+    return this.sendCommand('setLedMode', { mode: mode });
+  };
+  
+  ESP32Connection.prototype.vibrate = function() {
+    return this.sendCommand('vibrate');
+  };
+  
+  ESP32Connection.prototype.getMPUData = function() {
+    return this.sendCommand('getMPUData');
+  };
+  
+  ESP32Connection.prototype.setAutomaticDataSending = function(enabled) {
+    return this.sendCommand('setAutomaticDataSending', { enabled: enabled });
+  };
+  
+  ESP32Connection.prototype.getButtonState = function() {
+    return this.sendCommand('getButtonState');
+  };
+  
   // 全局变量
   window.ESP32Connection = ESP32Connection;
-  

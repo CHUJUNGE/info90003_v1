@@ -220,15 +220,21 @@
                     if (esp32Connection && esp32Connection.isConnected) {
                         esp32Connection.disconnect();
                     } else {
-                        updateUI('connecting');
                         if (esp32Connection) { 
                             esp32Connection.disconnect(); 
                         }
+                        updateUI('connecting'); // Moved updateUI call to before creating new connection
                         esp32Connection = new ESP32Connection(ipAddress);
 
                         esp32Connection.onConnect(() => {
                             updateUI('connected');
                             console.log('已连接到ESP32。'); 
+
+                            // If current stage is 'stage0' and connection is established, set LED to blue
+                            if (currentStage === 'stage0' && esp32Connection && esp32Connection.isConnected) {
+                                esp32Connection.sendCommand("setLedMode", { mode: 2 }); // 2 corresponds to blue solid light
+                                console.log('Sent command to ESP32 via sendCommand: setLedMode to blue for stage0.');
+                            }
                         });
 
                         esp32Connection.onDisconnect((event) => {
@@ -248,10 +254,8 @@
                             // Future: if ESP32 sends stage changes, call audioManager.setStageMusic() or similar
                         });
 
-                        if (!(connectEsp32Btn.disabled && connectEsp32Btn.textContent === 'Connecting...') && 
-                            !(esp32Connection.isConnected && connectEsp32Btn.textContent === 'Disconnect')) {
-                            esp32Connection.connect();
-                        }
+                        // Directly call connect, removing the problematic if condition
+                        esp32Connection.connect();
                     }
                 });
 
@@ -336,51 +340,59 @@
                     // Add other stage transitions here (e.g., else if (event.key === '2'))
                 });
 
-                // Initialize RFID Socket.IO connection
-                rfidSocket = io(); // Assumes Flask server is on the same host/port as this page
-
-                rfidSocket.on('connect', () => {
-                    console.log('Connected to RFID backend server (main_server.py).');
-                });
-
-                rfidSocket.on('disconnect', () => {
-                    console.log('Disconnected from RFID backend server.');
-                });
-
-                rfidSocket.on('rfid_data', (data) => {
-                    console.log('RFID data received from backend:', data);
-                    console.log('Checking for cup: currentStage is', currentStage, 'data.name is', data.name); // DEBUG LINE
-                    if (data.name === 'cup' && currentStage === 'stage2') { 
-                        console.log('"Cup" tag detected! Transitioning to Stage 3-1.');
-                        if (rfidSocket && rfidSocket.connected) {
-                           rfidSocket.emit('stop_rfid_scan'); // Tell backend to stop scanning ASAP
+                function initializeRfidConnection() {
+                    if (rfidSocket && rfidSocket.connected) {
+                        console.log('RFID connection already initialized and connected.');
+                        // If already connected, ensure scanning is (re)started if appropriate for current stage
+                        if (currentStage === 'stage2') { // Or other relevant stages
+                            console.log('Requesting backend to START RFID scan (already connected).');
+                            rfidSocket.emit('start_rfid_scan');
                         }
-                        const rfidScanMessageEl = document.getElementById('rfid-scan-message');
-                        if (rfidScanMessageEl && data.message_en) {
-                            rfidScanMessageEl.textContent = data.message_en;
-                            console.log('DEBUG: Set rfid-scan-message textContent to:', rfidScanMessageEl.textContent); // DEBUG LINE
-                        } else {
-                            console.log('DEBUG: rfid-scan-message element or data.message_en not found. Element:', rfidScanMessageEl, 'data.message_en:', data.message_en); // DEBUG LINE
-                        }
-                        audioManager.playSound('scanningSFX');
-                        transitionToStage3_1();
-                    } else if (data.tag_id) {
-                        console.log('Another tag detected:', data.tag_id);
-                        // You could potentially display other detected tags if needed
-                    } else if (data.message === "No tag found"){
-                        console.log('Backend reports: No tag found in this scan attempt.');
+                        return; 
                     }
-                });
 
-                rfidSocket.on('rfid_error', (error) => {
-                    console.error('RFID Error from backend:', error.message);
-                    // Display this error to the user in a non-intrusive way if necessary
-                    // For example, update a status bar or show a temporary notification
-                });
+                    console.log('Initializing RFID connection for Stage 2 onwards...');
+                    rfidSocket = io(); 
 
-                rfidSocket.on('rfid_scan_stopped', (data) => {
-                    console.log('RFID scanning has been stopped by the backend.', data ? data.message : '');
-                });
+                    rfidSocket.on('connect', () => {
+                        console.log('Connected to RFID backend server (main_server.py) - Stage 2 onwards.');
+                        console.log('Requesting backend to START RFID scan (on connect).');
+                        rfidSocket.emit('start_rfid_scan');
+                    });
+
+                    rfidSocket.on('disconnect', () => {
+                        console.log('Disconnected from RFID backend server.');
+                    });
+
+                    rfidSocket.on('rfid_data', (data) => {
+                        console.log('RFID data received from backend:', data);
+                        console.log('Checking for cup: currentStage is', currentStage, 'data.name is', data.name); 
+                        if (data.name === 'cup' && currentStage === 'stage2') { 
+                            console.log('"Cup" tag detected! Transitioning to Stage 3-1.');
+                            if (rfidSocket && rfidSocket.connected) {
+                               rfidSocket.emit('stop_rfid_scan'); 
+                            }
+                            const rfidScanMessageEl = document.getElementById('rfid-scan-message');
+                            if (rfidScanMessageEl && data.message_en) {
+                                rfidScanMessageEl.textContent = data.message_en;
+                            }
+                            audioManager.playSound('scanningSFX');
+                            transitionToStage3_1();
+                        } else if (data.tag_id) {
+                            console.log('Another tag detected:', data.tag_id);
+                        } else if (data.message === "No tag found"){
+                            console.log('Backend reports: No tag found in this scan attempt.');
+                        }
+                    });
+
+                    rfidSocket.on('rfid_error', (error) => {
+                        console.error('RFID Error from backend:', error.message);
+                    });
+
+                    rfidSocket.on('rfid_scan_stopped', (data) => {
+                        console.log('RFID scanning has been stopped by the backend.', data ? data.message : '');
+                    });
+                }
                 
                 // Function to transition from Stage 1 to Stage 2
                 function transitionToStage2() {
@@ -433,14 +445,8 @@
                                     
                                     // No background music for Stage 2
 
-                                    // Start RFID scanning when Stage 2 is fully ready
-                                    if (rfidSocket && rfidSocket.connected) {
-                                        console.log('Requesting backend to START RFID scan for Stage 2 (inside setTimeout).');
-                                        rfidSocket.emit('start_rfid_scan');
-                                    } else {
-                                        console.error('RFID socket not connected or available. Cannot start scan.');
-                                        // Consider attempting to connect if not connected, or queueing the start command.
-                                    }
+                                    // Initialize RFID and start scanning when Stage 2 is fully ready
+                                    initializeRfidConnection();
                                     }, 1000);
                                 }
                             
