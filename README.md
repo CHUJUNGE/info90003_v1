@@ -139,6 +139,8 @@ This repository contains the interactive crime scene reconstruction system proje
 PS D:\info90003_v1> .\\.venv\Scripts\activate
 (.venv) PS D:\info90003_v1> cd 'd:\info90003_v1'
 (.venv) PS D:\info90003_v1> python backend/main_server.py
+
+状态得重置
 ## 项目结构 (Project Structure)
 
 [项目结构将在开发过程中更新]

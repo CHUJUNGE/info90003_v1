@@ -9,6 +9,7 @@ import time
 # For example, if main_server.py is in 'backend' and rfid_reader.py is also in 'backend'
 from rfid_reader import RFIDReader
 from epc_mappings import get_name_for_epc
+import json
 
 
 app = Flask(__name__, static_folder='../frontend/assets')
@@ -23,6 +24,58 @@ rfid_reader_instance = RFIDReader(port="COM4")
 scanning_thread = None
 stop_scanning_event = threading.Event()
 is_scanning_active = False # Global flag to track if scanning is active
+
+# --- Scan Status Management ---
+SCAN_STATUS_FILENAME = "scanned_tags_status.json"
+DATA_DIR = os.path.join(os.path.dirname(__file__), 'data') # Creates a 'data' subdirectory in 'backend'
+SCAN_STATUS_FILE_PATH = os.path.join(DATA_DIR, SCAN_STATUS_FILENAME)
+
+TARGET_TAGS_FOR_COMPLETION = {
+    "cup": "cup_completed",
+    "knife": "knife_completed",
+    "phone": "phone_completed",
+    "monitor": "monitor_completed"
+}
+
+def initialize_scan_status_file():
+    os.makedirs(DATA_DIR, exist_ok=True) # Ensure data directory exists
+    if not os.path.exists(SCAN_STATUS_FILE_PATH):
+        print(f"'{SCAN_STATUS_FILE_PATH}' not found. Initializing a new one.")
+        default_status = {key: False for key in TARGET_TAGS_FOR_COMPLETION.values()}
+        save_scan_status(default_status)
+    else:
+        # Verify existing file content
+        try:
+            status = load_scan_status()
+            # Check if all expected keys are present
+            if not all(key in status for key in TARGET_TAGS_FOR_COMPLETION.values()):
+                print("Scan status file is missing keys. Re-initializing.")
+                default_status = {key: False for key in TARGET_TAGS_FOR_COMPLETION.values()}
+                save_scan_status(default_status)
+        except json.JSONDecodeError:
+            print("Scan status file is corrupted. Re-initializing.")
+            default_status = {key: False for key in TARGET_TAGS_FOR_COMPLETION.values()}
+            save_scan_status(default_status)
+
+def load_scan_status():
+    try:
+        with open(SCAN_STATUS_FILE_PATH, 'r') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        print(f"Warning: Scan status file '{SCAN_STATUS_FILE_PATH}' not found during load. Initializing.")
+        initialize_scan_status_file() # Initialize if not found
+        return {key: False for key in TARGET_TAGS_FOR_COMPLETION.values()} # Return default after init
+    except json.JSONDecodeError as e:
+        print(f"Error decoding JSON from '{SCAN_STATUS_FILE_PATH}': {e}. Re-initializing file.")
+        initialize_scan_status_file() # Re-initialize if corrupted
+        return {key: False for key in TARGET_TAGS_FOR_COMPLETION.values()} # Return default after init
+
+def save_scan_status(status_data):
+    with open(SCAN_STATUS_FILE_PATH, 'w') as f:
+        json.dump(status_data, f, indent=4)
+
+def check_all_completed(status_data):
+    return all(status_data.get(key, False) for key in TARGET_TAGS_FOR_COMPLETION.values())
 
 # --- Frontend Serving ---
 @app.route('/')
@@ -40,6 +93,45 @@ def serve_static_files(path):
          return send_from_directory('../frontend', path)
     # Fallback or specific handling for other paths if necessary
     return send_from_directory('../frontend', path) # Default for any other path
+
+
+# --- Scan Status Routes ---
+@app.route('/mark_tag_completed', methods=['POST'])
+def mark_tag_completed():
+    data = request.get_json()
+    tag_name_from_frontend = data.get('tag_name')
+
+    if not tag_name_from_frontend:
+        return {'error': 'tag_name not provided'}, 400
+
+    # Map frontend tag name (e.g., 'cup') to the key used in JSON (e.g., 'cup_completed')
+    status_key = TARGET_TAGS_FOR_COMPLETION.get(tag_name_from_frontend)
+    if not status_key:
+        return {'error': f'Unknown tag_name: {tag_name_from_frontend}'}, 400
+
+    current_status = load_scan_status()
+    if current_status.get(status_key) is True:
+        print(f"Tag '{tag_name_from_frontend}' ({status_key}) was already marked as completed.")
+    else:
+        current_status[status_key] = True
+        save_scan_status(current_status)
+        print(f"Tag '{tag_name_from_frontend}' ({status_key}) marked as completed.")
+
+    all_done = check_all_completed(current_status)
+    return {'all_completed': all_done, 'updated_status': current_status}
+
+@app.route('/reset_scan_status', methods=['POST'])
+def reset_scan_status_route():
+    default_status = {key: False for key in TARGET_TAGS_FOR_COMPLETION.values()}
+    save_scan_status(default_status)
+    print("Scan status has been reset.")
+    return {'message': 'Scan status reset successfully', 'new_status': default_status}
+
+@app.route('/get_scan_status', methods=['GET'])
+def get_scan_status_route():
+    current_status = load_scan_status()
+    all_done = check_all_completed(current_status)
+    return {'current_status': current_status, 'all_completed': all_done}
 
 
 # --- RFID Scanning Logic ---
@@ -165,6 +257,7 @@ def handle_stop_rfid_scan():
 
 
 if __name__ == '__main__':
+    initialize_scan_status_file() # Ensure status file is ready on server start
     print("Starting Flask-SocketIO server on http://0.0.0.0:5000")
     socketio.run(app, host='0.0.0.0', port=5000, debug=True, allow_unsafe_werkzeug=True, use_reloader=False)
     # use_reloader=False is important for threads to behave predictably during dev

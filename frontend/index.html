@@ -38,12 +38,18 @@
             <span>ESP32: </span><span id="esp32-status-text">Disconnected</span>
         </div>
 
-        <!-- Stage elements container -->
+        <!-- Stage Elements Container -->
         <div id="stage-elements-container">
+            <!-- Stage 5: Loading/Conclusion Screen -->
+            <div id="stage5-loading-container" class="stage-message" style="display: none; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
+                <div class="loader"></div>
+                <p id="stage5-message" style="margin-top: 20px; font-size: 1.5em; color: #fff;">正在分析所有证物...</p>
+            </div>
+
             <!-- Stage 0 elements (like the globe canvas) are already here or dynamically added -->
             <div id="stage1-welcome-message" class="stage-message" style="display: none;">Welcome</div>
             <!-- Stage 2 elements -->
-            <div id="stage2-container" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;">
+            <div id="stage2-container" class="stage-container" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;">
                 <h2 id="stage2-title" class="stage-title" style="opacity: 0; transition: opacity 1s ease-in;">Case 001: A woman was found dead in her home</h2>
                 <div style="position: relative; width: 100%; height: 100%; overflow: hidden;">
                     <canvas id="floorplan-canvas" style="width: 100%; height: 100%; position: relative; left: -15%;"></canvas>
@@ -57,12 +63,19 @@
             </div>
             <!-- Stage 3-1: RFID Scan Result for Cup -->
             <div id="stage3-1-container" class="stage-message" style="display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center;">
-                <video id="rfid-scan-video" width="70%" height="auto" style="max-width: 800px; margin-bottom: 20px; border: 2px solid #00ff00;">
+                <video id="rfid-scan-video">
                     <source src="assets/videos/cup_scan.mp4" type="video/mp4">
                     您的浏览器不支持HTML5视频。
                 </video>
                 <p id="rfid-scan-message" style="font-size: 1.8em; color: #00ff00; text-shadow: 0 0 7px #00ff00, 0 0 10px #00ff00;"></p>
                 <img id="wife-image" src="assets/picture/wife.png" alt="Wife's Picture" style="display: none;">
+            </div>
+            <!-- Stage 3-2: Knife Scan Video -->
+            <div id="stage3-2-container" class="stage-message" style="display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center;">
+                <video id="knife-scan-video">
+                    <!-- JavaScript会设置src -->
+                </video>
+                <img id="robot-image-stage3-2" src="assets/picture/robot.png" alt="Robot Image" style="display: none;">
             </div>
             <!-- Stage 4-1: Cup Movement Video -->
             <div id="stage4-1-container" class="stage-message" style="display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center;">
@@ -77,7 +90,67 @@
             </div>
             <!-- Stage 4-1-1: Action Reproduction Prompt -->
             <div id="stage4-1-1-container" class="stage-message" style="display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center; height: 100%;">
-                <p id="action-reproduction-message" style="font-size: 1em; color: #00ccff; text-shadow: 0 0 10px #0066ff; font-family: Arial, sans-serif;">Please reproduce the action</p>
+                <p id="action-reproduction-message">Please reproduce the action</p>
+            </div>
+
+            <!-- Stage 4-2: Knife Movement Video -->
+            <div id="stage4-2-container" class="stage-message" style="display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center;">
+                <div style="position: relative; width: 70%; max-width: 800px;">
+                    <video id="knife-movement-video" width="100%" height="auto" style="margin-bottom: 20px; border: 2px solid #00ff00;" loop>
+                        <source src="assets/videos/knife_movement.mp4" type="video/mp4">
+                        您的浏览器不支持HTML5视频。
+                    </video>
+                    <div id="countdown-timer-stage4-2" style="position: absolute; top: 10px; right: 10px; font-size: 2.5em; color: #00ccff; font-weight: bold; text-shadow: 0 0 8px #0066ff; font-family: Arial, sans-serif; letter-spacing: 0px; display: none; border: 1px solid #00ccff; border-radius: 5px; padding: 2px 10px; background-color: rgba(0,10,20,0.7);">6</div>
+                </div>
+                <p id="knife-movement-message" style="font-size: 0.4em; color: #0091ff; text-shadow: 0 0 2px #00ccff;">Please try to perform the action to verify the action logic</p>
+            </div>
+
+            <!-- Stage 4-2-1: Action Reproduction Prompt (Knife) -->
+            <div id="stage4-2-1-container" class="stage-message" style="display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center; height: 100%;">
+                <p id="action-reproduction-message-stage4-2-1">Please reproduce the action with the knife</p>
+            </div>
+
+            <!-- Stage 3-3: Phone Scan -->
+            <div id="stage3-3-container" class="stage-message" style="display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center;">
+                <video id="phone-scan-video" playsinline muted preload="auto"></video>
+                <img id="husband-image" src="assets/picture/husband.png" alt="Husband Image" style="display: none;" class="glitch-image-effect">
+                <!-- Optional: Message during phone scan -->
+                <!-- <p id="phone-scan-message">Scanning Phone...</p> -->
+            </div>
+
+            <!-- Stage 4-3: Phone Movement Video -->
+            <div id="stage4-3-container" class="stage-message" style="display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center;">
+                <div style="position: relative; width: 70%; max-width: 800px;">
+                    <video id="phone-movement-video" width="100%" height="auto" style="margin-bottom: 20px; border: 2px solid #00ff00;" playsinline muted loop preload="auto"></video>
+                    <div id="countdown-timer-stage4-3" style="position: absolute; top: 10px; right: 10px; font-size: 2.5em; color: #00ccff; font-weight: bold; text-shadow: 0 0 8px #0066ff; font-family: Arial, sans-serif; letter-spacing: 0px; display: none; border: 1px solid #00ccff; border-radius: 5px; padding: 2px 10px; background-color: rgba(0,10,20,0.7);"></div>
+                </div>
+                <p id="phone-movement-message" style="font-size: 0.4em; color: #0091ff; text-shadow: 0 0 2px #00ccff;">Please try to perform the action to verify the action logic</p>
+            </div>
+
+            <!-- Stage 4-3-1: Action Reproduction Prompt (Phone) -->
+            <div id="stage4-3-1-container" class="stage-message" style="display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center; height: 100%;">
+                <p id="action-reproduction-message-stage4-3-1">Please reproduce the action</p>
+            </div>
+
+            <!-- Stage 3-4: Monitor Scan (Mirrors Stage 3-1 for Cup) -->
+            <div id="stage3-4-container" class="stage-message" style="display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center;">
+                <video id="monitor-scan-video" src="assets/videos/camera_scan.mp4" playsinline muted preload="auto"></video>
+                <img id="monitor-scene-image" src="assets/picture/monitor.png" alt="Monitor Scene Image" style="display: none;" class="glitch-image-effect">
+                <p id="monitor-scan-message" class="scan-message-overlay"></p> <!-- Optional message -->
+            </div>
+
+            <!-- Stage 4-4: Monitor Movement Video (Mirrors Stage 4-1 for Cup) -->
+            <div id="stage4-4-container" class="stage-message" style="display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center;">
+                <div style="position: relative; width: 70%; max-width: 800px;">
+                    <video id="monitor-movement-video" src="assets/videos/camera_movement.mp4" width="100%" height="auto" style="margin-bottom: 20px; border: 2px solid #00ff00;" playsinline muted loop preload="auto"></video>
+                    <div id="countdown-timer-stage4-4" style="position: absolute; top: 10px; right: 10px; font-size: 2.5em; color: #00ccff; font-weight: bold; text-shadow: 0 0 8px #0066ff; font-family: Arial, sans-serif; letter-spacing: 0px; display: none; border: 1px solid #00ccff; border-radius: 5px; padding: 2px 10px; background-color: rgba(0,10,20,0.7);"></div>
+                </div>
+                <p id="monitor-movement-message" style="font-size: 0.4em; color: #0091ff; text-shadow: 0 0 2px #00ccff;">Please try to perform the action to verify the action logic</p>
+            </div>
+
+            <!-- Stage 4-4-1: Action Reproduction Prompt (Monitor) (Mirrors Stage 4-1-1 for Cup) -->
+            <div id="stage4-4-1-container" class="stage-message" style="display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center; height: 100%;">
+                <p id="action-reproduction-message-stage4-4-1">Please reproduce the action</p>
             </div>
         </div>
 
@@ -94,6 +167,44 @@
             let audioManager; 
             let isTransitioningToStage1 = false; // Flag to prevent multiple transitions
             let currentStage = 'stage0'; // Initialize current application stage
+            const TAG_NAMES = { cup: 'cup', knife: 'knife', phone: 'phone', monitor: 'monitor' }; // Define tag names for consistency
+            let scannedTags = new Set(); // Set to store EPCs of already processed tags
+            let currentEPC = null; // To store the EPC of the tag currently being processed through a multi-stage flow
+
+            function hideAllStages() {
+                const selectors = [
+                    '.initial-container', // For Stage 0
+                    '.stage-container',   // For Stage 1, Stage 2, etc.
+                    '.stage-message'      // For sub-stages like 3-1, 4-1, prompts
+                ];
+                const stageElements = document.querySelectorAll(selectors.join(', '));
+
+                stageElements.forEach(element => {
+                    if (!element.closest('#esp32-connect-modal') && element.id !== 'esp32-connect-modal') {
+                        if (element.id !== 'main-content-wrapper') {
+                            element.style.display = 'none';
+                            element.style.opacity = '0';
+                        }
+                    }
+                });
+
+                const titleElement = document.querySelector('.title');
+                if (titleElement) titleElement.style.display = 'none';
+
+                const instructionsStage0 = document.getElementById('instructions-stage0');
+                if (instructionsStage0) instructionsStage0.style.display = 'none';
+                
+                const globeContainer = document.getElementById('globe-container');
+                if (globeContainer) globeContainer.style.display = 'none';
+                
+                // const statusDisplay = document.getElementById('esp32-status-display'); 
+                // if (statusDisplay && statusDisplay.classList.contains('visible-in-stage0')) {
+                //     // statusDisplay.style.display = 'none'; 
+                // }
+
+                console.log('hideAllStages: All stage visual elements hidden.');
+            }
+
 
             document.addEventListener('DOMContentLoaded', () => {
                 const modal = document.getElementById('esp32-connect-modal');
@@ -114,10 +225,16 @@
                 audioManager.loadSound('stage1WelcomeSFX', 'assets/audio/stage1_welcome_sfx.wav', false);
                 audioManager.loadSound('stage1WelcomeVoiceZH', 'assets/audio/stage1_welcome_voice_zh.mp3', false);
                 audioManager.loadSound('scanningSFX', 'assets/audio/scanning.wav', false);
+                audioManager.loadSound('knifeScanAudio', 'assets/audio/knife_scan.mp3', false); // <-- 新增：加载刀具扫描音效
                 audioManager.loadSound('cupScanAudio', 'assets/audio/cup_scan.mp3', false);
                 audioManager.loadSound('victimBioAudio', 'assets/audio/victim_biological.mp3', false);
                 audioManager.loadSound('cupMovementAudio', 'assets/audio/cup_scan.mp3', false); // 复用 cup_scan.mp3 作为 cup_movement.mp4 的音频
                 audioManager.loadSound('countdownBeeping', 'assets/audio/countdown_beeping.wav', false);
+                audioManager.loadSound('fibreTraceAudio', 'assets/audio/fibre_trace.mp3', false); // <-- 新增：加载机器人图片音效
+                audioManager.loadSound('phoneScanAudio', 'assets/audio/phone_scan.mp3', false);
+                audioManager.loadSound('phoneContactAudio', 'assets/audio/phone_contact.mp3', false);
+                audioManager.loadSound('monitorScanVoice', 'assets/audio/camera_scan.mp3', false);
+                audioManager.loadSound('monitorSceneVoice', 'assets/audio/surveillance_camera.mp3', false);
 
                 // Attempt to play Stage 0 music. If audio not unlocked, it will be queued and play on first interaction.
                 if (audioManager) { 
@@ -308,6 +425,8 @@
 
                                 // 4. Play welcome voice after Stage 1 Welcome message transition ends
                                 stage1WelcomeMessage.addEventListener('transitionend', function onTransitionEnd() {
+                                    currentStage = 'stage1'; // Set current stage now that Stage 1 is active
+                                    console.log('Stage 1 is now active. currentStage:', currentStage);
                                     if (audioManager) { // Check again for playing voice
                                         audioManager.playSound('stage1WelcomeVoiceZH');
                                         
@@ -365,7 +484,36 @@
                     });
 
                     rfidSocket.on('rfid_data', (data) => {
-                        console.log('RFID data received from backend:', data);
+                        console.log('RFID data received from backend:', data); // Keep this log as the first line inside handler
+
+                        const epc = data.epc; // 修改：从 data.tag_id 改为 data.epc
+                        const itemName = data.name;
+
+                        if (epc && scannedTags.has(epc)) {
+                            console.log(`Tag ${epc} (${itemName || 'Unknown'}) already processed. Ignoring.`);
+                            // Optional: Provide user feedback (e.g., a short message on screen)
+                            if (rfidSocket && rfidSocket.connected && currentStage === 'stage2') {
+                                // Ensure scanning continues if it stopped implicitly
+                                console.log('Requesting backend to RESTART RFID scan for already known tag while in stage2.');
+                                rfidSocket.emit('start_rfid_scan');
+                            }
+                            return; // Stop further processing for this already scanned tag
+                        }
+                        
+                        // If it's a new tag and is the 'cup' (which has a multi-stage flow), store its EPC.
+                        // It will be added to scannedTags upon completion of its flow (in transitionToStage4_1_1).
+                        if (epc && itemName === 'cup') {
+                            currentEPC = epc;
+                            console.log('Cup detected, currentEPC set to:', currentEPC, '(EPC was:', epc, ')'); // 新增日志
+                        } else if (epc && itemName && itemName !== 'cup' && itemName !== 'knife') { // Exclude cup and knife as they have specific EPC handling
+                            // For other named items that might have a simpler, direct processing (no multi-stage flow ending in 4-1-1)
+                            // and are considered 'done' immediately, add them to scannedTags here.
+                            // This part is illustrative; adapt if other items have different flows.
+                            // scannedTags.add(epc);
+                            // console.log(`Tag ${epc} (${itemName}) processed and recorded (simple flow).`);
+                        }
+
+                        // Original logic for specific items like 'cup' will follow this block.
                         console.log('Checking for cup: currentStage is', currentStage, 'data.name is', data.name); 
                         if (data.name === 'cup' && currentStage === 'stage2') { 
                             console.log('"Cup" tag detected! Transitioning to Stage 3-1.');
@@ -378,7 +526,46 @@
                             }
                             audioManager.playSound('scanningSFX');
                             transitionToStage3_1();
-                        } else if (data.tag_id) {
+                        } else if (data.name === 'knife' && currentStage === 'stage2') {
+                            console.log('"Knife" tag detected! Transitioning to Stage 3-2.');
+                            if (rfidSocket && rfidSocket.connected) {
+                                rfidSocket.emit('stop_rfid_scan'); 
+                            }
+                            // For one-off items like knife, if its EPC shouldn't allow re-scan immediately,
+                            // set currentEPC here. It will be added to scannedTags in transitionToStage3_2.
+                            if (epc) { // epc comes from data.epc now
+                                currentEPC = epc; 
+                            }
+                            transitionToStage3_2();
+                        } else if (data.name === 'phone' && currentStage === 'stage2') {
+                            console.log('\"Phone\" tag detected! Transitioning to Stage 3-3.');
+                            if (rfidSocket && rfidSocket.connected) {
+                                rfidSocket.emit('stop_rfid_scan'); 
+                                console.log('Requested backend to STOP RFID scan for Phone.');
+                            }
+                            if (epc) { // epc comes from data.epc
+                                currentEPC = epc; 
+                                console.log('Phone detected, currentEPC set to:', currentEPC);
+                            }
+                            transitionToStage3_3();
+                        } else if (data.name === 'monitor' && currentStage === 'stage2') {
+                            console.log('"Monitor" tag detected! Transitioning to Stage 3-4.');
+                            // logToBackend('"Monitor" tag detected by frontend.');
+                            if (rfidSocket && rfidSocket.connected) {
+                                rfidSocket.emit('stop_rfid_scan');
+                                console.log('Requested backend to STOP RFID scan for Monitor.');
+                                // logToBackend('Frontend requested backend to STOP RFID scan for Monitor.');
+                            }
+                            if (epc) { // epc comes from data.epc (defined earlier in the handler)
+                                currentEPC = epc;
+                                console.log('Monitor detected, currentEPC set to:', currentEPC);
+                                const monitorScanMessageEl = document.getElementById('monitor-scan-message');
+                                if (monitorScanMessageEl) {
+                                   monitorScanMessageEl.textContent = `证物-${currentEPC}正在被扫描...`; // Set scan message
+                                }
+                            }
+                            transitionToStage3_4();
+                        } else if (data.epc) { // Changed from data.tag_id to data.epc for general case
                             console.log('Another tag detected:', data.tag_id);
                         } else if (data.message === "No tag found"){
                             console.log('Backend reports: No tag found in this scan attempt.');
@@ -396,29 +583,35 @@
                 
                 // Function to transition from Stage 1 to Stage 2
                 function transitionToStage2() {
-                    console.log('Transitioning to Stage 2');
-                    currentStage = 'stage2'; // Update current stage
+                    console.log('Transitioning to Stage 2. Called from: ' + currentStage);
+                    const stageToHideId_from_currentStage_logic = currentStage; // Save for logging or specific logic
 
-                    const stage1WelcomeMessage = document.getElementById('stage1-welcome-message');
+                    let stageToHideElement = null;
+                    if (stageToHideId_from_currentStage_logic === 'stage1') {
+                        stageToHideElement = document.getElementById('stage1-welcome-message');
+                    } else if (stageToHideId_from_currentStage_logic === 'stage4-1-1') {
+                        stageToHideElement = document.getElementById('stage4-1-1-container');
+                    } else if (currentStage !== 'stage0' && currentStage !== 'stage2') { // General case for other stages
+                        stageToHideElement = document.getElementById(currentStage + '-container') || document.getElementById(currentStage);
+                    }
+
+                    currentStage = 'stage2'; // Set the new current stage
+
                     const stage2Container = document.getElementById('stage2-container');
                     const stage2Title = document.getElementById('stage2-title');
-                    
-                    // 1. Fade out Stage 1 welcome message
-                    if (stage1WelcomeMessage) {
-                        stage1WelcomeMessage.style.opacity = '0';
-                        
-                        // Wait for fade out to complete
-                        stage1WelcomeMessage.addEventListener('transitionend', function onStage1FadeOut() {
-                            // Hide Stage 1 elements completely
-                            stage1WelcomeMessage.style.display = 'none';
-                            
-                            // Stage 2 transition (no sound effect)
-                            
-                            // 3. Show Stage 2 container
-                            if (stage2Container) {
-                                stage2Container.style.display = 'block';
-                                
-                                // Initialize 3D floorplan
+
+                    const setupAndShowStage2 = () => {
+                        if (stage2Container) {
+                            stage2Container.style.display = 'block'; 
+                            stage2Container.style.opacity = '0'; 
+
+                            if (window.floorplanRenderer && typeof window.floorplanRenderer.stopAnimation === 'function') {
+                                window.floorplanRenderer.stopAnimation();
+                            }
+                            if (!window.floorplanRenderer || stageToHideId_from_currentStage_logic === 'stage4-1-1') { 
+                                if (window.floorplanRenderer && typeof window.floorplanRenderer.dispose === 'function') {
+                                    window.floorplanRenderer.dispose(); 
+                                }
                                 const floorplanRenderer = new FloorplanRenderer3D('floorplan-canvas');
                                 floorplanRenderer.init();
                                 floorplanRenderer.createFloorplan();
@@ -427,37 +620,210 @@
                                 floorplanRenderer.createFurniture();
                                 floorplanRenderer.createDecorations();
                                 floorplanRenderer.createEvidenceMarkers();
-                                floorplanRenderer.startAnimation();
-                                floorplanRenderer.show();
-                                
-                                // Store the renderer in window for later access
                                 window.floorplanRenderer = floorplanRenderer;
+                            }
+                            window.floorplanRenderer.startAnimation(); 
+                            window.floorplanRenderer.show(); 
+
+                            requestAnimationFrame(() => { 
+                                stage2Container.style.opacity = '1';
+                                if (stage2Title) stage2Title.style.opacity = '1';
                                 
-                                // 4. Fade in Stage 2 title and scan instruction
-                                setTimeout(() => {
-                                    if (stage2Title) stage2Title.style.opacity = '1';
-                                    
-                                    // Show scan instruction after title appears
-                                    setTimeout(() => {
-                                        const scanInstruction = document.getElementById('scan-instruction');
-                                        if (scanInstruction) scanInstruction.style.opacity = '1';
-                                    }, 1000);
-                                    
-                                    // No background music for Stage 2
-
-                                    // Initialize RFID and start scanning when Stage 2 is fully ready
-                                    initializeRfidConnection();
-                                    }, 1000);
-                                }
+                                setTimeout(() => { 
+                                    const scanInstruction = document.getElementById('scan-instruction');
+                                    if (scanInstruction) scanInstruction.style.opacity = '1';
+                                }, 1000);
+                            });
                             
-                                // Remove event listener
-                                stage1WelcomeMessage.removeEventListener('transitionend', onStage1FadeOut);
-                            }, { once: true });
+                            audioManager.setStageMusic(null); 
+                            initializeRfidConnection(); 
+                        } else {
+                            console.error('Stage 2 container not found!');
                         }
-                    }
-                }); // END of transitionToStage2 function's event listener logic, BEFORE new function definition
+                    };
 
-                // Function to transition to Stage 3-1 (Cup Scan)
+                    if (stageToHideElement && stageToHideElement.style.display !== 'none') {
+                        console.log('Fading out previous stage element:', stageToHideElement.id);
+                        stageToHideElement.style.opacity = '0';
+                        stageToHideElement.addEventListener('transitionend', function onHide() {
+                            stageToHideElement.style.display = 'none';
+                            stageToHideElement.removeEventListener('transitionend', onHide);
+                            setupAndShowStage2();
+                        }, { once: true });
+                    } else {
+                        if (stageToHideElement) console.log('Previous stage element (' + stageToHideElement.id + ') not found or already hidden.');
+                        else console.log('No specific previous stage element to hide or already in stage 0/2.');
+                        setupAndShowStage2();
+                    }
+                }
+
+                // The DOMContentLoaded listener's closing }); might be targeted if replacing the whole block
+                // For now, this replaces just the function definition. Ensure the old function's closing '}' is part of targetContent if replacing the whole block.
+                // The original function ended at line 456. The target should be the function definition itself.
+
+
+                // Function to transition to Stage 5 (Loading/Conclusion)
+            function transitionToStage5() {
+                console.log('Transitioning to Stage 5: All items scanned, loading conclusion.');
+                hideAllStages();
+                currentStage = 'stage5';
+                const stage5Container = document.getElementById('stage5-loading-container');
+                const stage5Message = document.getElementById('stage5-message');
+                if (stage5Container) {
+                    stage5Container.style.display = 'flex';
+                    requestAnimationFrame(() => {
+                        stage5Container.style.opacity = '1';
+                        if (stage5Message) stage5Message.textContent = '正在分析所有证物...'; // Or any appropriate message
+                        // You might want to play a specific sound or start an animation here
+                        // For now, it just shows the loading spinner and message.
+                        // After a delay, you could transition to a final results screen or loop back.
+                        // Example: setTimeout(() => { console.log('Stage 5 finished.'); transitionToStage0(); }, 10000); 
+                    });
+                } else {
+                    console.error('Stage 5 container not found!');
+                    transitionToStage2(); // Fallback if Stage 5 is broken
+                }
+            }
+
+            // Helper function to mark a tag as completed on the server
+            async function markTagAsCompletedOnServer(tagName) {
+                console.log(`Attempting to mark tag '${tagName}' as completed on server.`);
+                try {
+                    const response = await fetch('/mark_tag_completed', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ tag_name: tagName }),
+                    });
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        console.error(`Error marking tag '${tagName}' completed:`, response.status, errorData);
+                        return { all_completed: false, error: true }; // Indicate error and not all completed
+                    }
+                    const result = await response.json();
+                    console.log(`Tag '${tagName}' marked. Server response:`, result);
+                    return { all_completed: result.all_completed, error: false };
+                } catch (error) {
+                    console.error(`Network or other error marking tag '${tagName}':`, error);
+                    return { all_completed: false, error: true }; // Indicate error and not all completed
+                }
+            }
+
+            // Function to transition to Stage 3-1 (Cup Scan)
+
+                // Function to transition to Stage 3-2 (Knife Scan)
+                function transitionToStage3_2() {
+                    console.log('Transitioning to Stage 3-2 for Knife Scan');
+                    const stage2Container = document.getElementById('stage2-container');
+                    const stage3_2Container = document.getElementById('stage3-2-container');
+                    const knifeScanVideo = document.getElementById('knife-scan-video');
+
+                    if (currentStage === 'stage2' && stage2Container) {
+                        console.log('DEBUG: Hiding stage2Container and attempting to show stage3-2Container immediately.');
+                        stage2Container.style.opacity = '0';
+                        stage2Container.style.display = 'none'; // Hide immediately
+                        
+                        // Temporarily bypass transitionend for debugging
+                        // stage2Container.addEventListener('transitionend', function onFadeOut() {
+                        //     stage2Container.style.display = 'none';
+                        //     stage2Container.removeEventListener('transitionend', onFadeOut);
+
+                        if (window.floorplanRenderer && typeof window.floorplanRenderer.stopAnimation === 'function') {
+                            console.log('DEBUG: Stopping floorplanRenderer animation.');
+                            window.floorplanRenderer.stopAnimation();
+                        }
+
+                        if (stage3_2Container && knifeScanVideo) {
+                                stage3_2Container.style.display = 'flex'; // Or 'block' if flex not needed by children directly
+                                // The flex layout (column, align, justify) is now handled by the container's inline style or CSS class
+                                requestAnimationFrame(() => {
+                                    stage3_2Container.style.opacity = '1';
+                                });
+                                currentStage = 'stage3-2';
+
+                                console.log('Setting knifeScanVideo.src to: assets/videos/knife_scan.mp4');
+                                knifeScanVideo.src = 'assets/videos/knife_scan.mp4';
+
+                                // --- DEBUGGING VIDEO EVENTS ---
+                                knifeScanVideo.oncanplay = () => console.log('DEBUG: knifeScanVideo event: canplay');
+                                knifeScanVideo.oncanplaythrough = () => console.log('DEBUG: knifeScanVideo event: canplaythrough');
+                                knifeScanVideo.onloadeddata = () => console.log('DEBUG: knifeScanVideo event: loadeddata');
+                                knifeScanVideo.onloadedmetadata = () => console.log('DEBUG: knifeScanVideo event: loadedmetadata');
+                                knifeScanVideo.onplaying = () => console.log('DEBUG: knifeScanVideo event: playing');
+                                knifeScanVideo.onerror = (e) => {
+                                    console.error('DEBUG: knifeScanVideo event: error', e);
+                                    if (knifeScanVideo.error) {
+                                        console.error('DEBUG: knifeScanVideo error code:', knifeScanVideo.error.code, 'message:', knifeScanVideo.error.message);
+                                    }
+                                };
+                                knifeScanVideo.onstalled = () => console.log('DEBUG: knifeScanVideo event: stalled');
+                                knifeScanVideo.onsuspend = () => console.log('DEBUG: knifeScanVideo event: suspend');
+                                knifeScanVideo.onwaiting = () => console.log('DEBUG: knifeScanVideo event: waiting');
+                                // --- END DEBUGGING VIDEO EVENTS ---
+
+                                console.log('Attempting to play knifeScanVideo...');
+                                knifeScanVideo.play().then(() => {
+                                    console.log('DEBUG: knifeScanVideo.play() promise resolved (playback likely started)');
+                                }).catch(error => {
+                                    console.error('DEBUG: knifeScanVideo.play() promise rejected:', error);
+                                });
+
+                                audioManager.playSound('scanningSFX'); // Reusing cup's scanning sound
+                                audioManager.playSound('knifeScanAudio'); // Assumes 'knifeScanAudio' is loaded
+
+                                knifeScanVideo.onended = () => {
+                                    console.log('Knife scan video (knife_scan.mp4) finished.');
+                                    knifeScanVideo.style.display = 'none'; // Hide video
+
+                                    // Create and show robot.png
+                                    const robotImage = document.getElementById('robot-image-stage3-2');
+                                    if (robotImage) {
+                                        robotImage.style.display = 'block'; // Or 'flex' if its CSS expects that for layout, 'block' is typical for <img>
+                                    } else {
+                                        console.error('Robot image element (#robot-image-stage3-2) not found!');
+                                    }
+                                    
+                                    audioManager.playSound('fibreTraceAudio');
+                                    currentStage = 'stage3-2-robot-image'; // Update current stage
+
+                                    // Listen for fibreTraceAudio to end
+                                    const fibreTraceAudioElement = audioManager.sounds['fibreTraceAudio'].element;
+                                    if (fibreTraceAudioElement) {
+                                        fibreTraceAudioElement.addEventListener('ended', function onFibreTraceAudioEnded() {
+                                            console.log('FibreTraceAudio ended. Waiting 3 seconds to transition to Stage 4-2.');
+                                            setTimeout(() => {
+                                                transitionToStage4_2();
+                                            }, 3000); // 3-second delay
+                                            fibreTraceAudioElement.removeEventListener('ended', onFibreTraceAudioEnded); // Clean up listener
+                                        }, { once: true });
+                                    } else {
+                                        console.error('fibreTraceAudio element not found in AudioManager. Cannot set up auto-transition to Stage 4-2.');
+                                    }
+
+                                    if (currentEPC) { 
+                                        scannedTags.add(currentEPC);
+                                        console.log(`Tag ${currentEPC} (knife) processed and recorded after video and robot sequence.`);
+                                        currentEPC = null; 
+                                    }
+                                    console.log('Stage 3-2: Video ended, robot sequence initiated. Waiting for FibreTraceAudio and delay.');
+                                };
+
+                                // Ensure knifeScanAudio (knife_scan.mp3) also plays. 
+                                // Its end event is no longer primary trigger for this sequence.
+                                // The audioManager.playSound('knifeScanAudio') call earlier in this function handles its playback.
+                            } else {
+                                console.error('Stage 3-2 container or video element not found!');
+                                transitionToStage2(); // Fallback
+                            }
+                        // }, { once: true }); // End of bypassed transitionend
+                    } else {
+                        console.error('Cannot transition to Stage 3-2 from current stage:', currentStage);
+                        // Potentially force hide other stages and show stage 3-2 if needed, or go to a safe stage
+                    }
+                }
+
+
                 function transitionToStage3_1() {
                     console.log('Transitioning to Stage 3-1 for Cup Scan');
                     const stage2Container = document.getElementById('stage2-container');
@@ -608,41 +974,492 @@
                     }
                 }
 
-                // Function to transition to Stage 4-1-1 (Action Reproduction Prompt)
-                function transitionToStage4_1_1() {
-                    console.log('Transitioning to Stage 4-1-1 for Action Reproduction');
-                    const stage4_1Container = document.getElementById('stage4-1-container');
-                    const stage4_1_1Container = document.getElementById('stage4-1-1-container');
+                // Function to transition to Stage 4-2 (Knife Movement)
+                function transitionToStage4_2() {
+                    console.log('Transitioning to Stage 4-2 for Knife Movement');
+                    // Determine the stage to hide based on where we are coming from.
+                    // This needs to be dynamically set or passed if stage flow is complex.
+                    // Assuming for now we might come from stage3-2 or a similar point before action sequences.
+                    let stageToHideId = '';
+                    if (currentStage === 'stage3-2-robot-image') { // A more specific state if needed
+                        stageToHideId = 'stage3-2-container';
+                    } else if (currentStage === 'stage2') { // Or if a direct scan from stage 2 triggers this
+                        stageToHideId = 'stage2-container';
+                    } else {
+                        // Fallback or determine dynamically. For now, let's assume we need to hide the active message container.
+                        const activeMessage = document.querySelector('.stage-message[style*="display: flex"], .stage-message[style*="display: block"]:not(#stage4-2-container)');
+                        if (activeMessage) stageToHideId = activeMessage.id;
+                    }
+                    const stageToHide = stageToHideId ? document.getElementById(stageToHideId) : null;
 
-                    // 1. Fade out Stage 4-1 elements
-                    if (stage4_1Container) {
-                        stage4_1Container.style.opacity = '0';
-                        // After fade out, hide it to prevent interaction
-                        stage4_1Container.addEventListener('transitionend', function onStage4_1FadeOut() {
-                            stage4_1Container.style.display = 'none';
-                            stage4_1Container.removeEventListener('transitionend', onStage4_1FadeOut);
+                    const stage4_2Container = document.getElementById('stage4-2-container');
+                    const knifeMovementVideo = document.getElementById('knife-movement-video');
+                    // const knifeMovementMessage = document.getElementById('knife-movement-message'); // Message element exists but might not need direct manipulation if static
+
+                    // 1. Fade out previous Stage elements
+                    if (stageToHide) {
+                        stageToHide.style.opacity = '0';
+                        stageToHide.addEventListener('transitionend', function onStageToHideFadeOut() {
+                            stageToHide.style.display = 'none';
+                            stageToHide.removeEventListener('transitionend', onStageToHideFadeOut);
                         }, { once: true });
+                    } else {
+                        console.warn('No specific stage to hide was determined for transition to Stage 4-2. Ensure currentStage or flow is correct.');
                     }
 
-                    // 2. Prepare and show Stage 4-1-1 elements
-                    if (stage4_1_1Container) {
-                        stage4_1_1Container.style.display = 'flex'; // Use flex for centering
+                    // 2. Prepare and show Stage 4-2 elements
+                    if (stage4_2Container && knifeMovementVideo) {
+                        stage4_2Container.style.display = 'flex'; 
+                        currentStage = 'stage4-2'; // Update current stage tracker
                         
-                        // Ensure display is set before starting opacity transition
                         requestAnimationFrame(() => {
-                            stage4_1_1Container.style.opacity = '1';
+                            stage4_2Container.style.opacity = '1';
+                            knifeMovementVideo.currentTime = 0; 
+                            knifeMovementVideo.loop = true; // Ensure it loops until countdown audio ends
+                            knifeMovementVideo.play().catch(error => {
+                                console.error("Knife movement video play failed:", error);
+                            });
+                            // Video is silent initially, sound comes with countdown
+
+                            // After 3 seconds of video, show countdown and play audio
+                            setTimeout(() => {
+                                const countdownTimer = document.getElementById('countdown-timer-stage4-2');
+                                if (countdownTimer) {
+                                    countdownTimer.style.display = 'block';
+                                    let countdown = 6;
+                                    countdownTimer.textContent = countdown;
+                                    
+                                    audioManager.playSound('countdownBeeping');
+                                    const countdownAudio = audioManager.sounds['countdownBeeping'].element;
+                                    
+                                    countdownAudio.addEventListener('ended', () => {
+                                        console.log('Countdown audio ended for Stage 4-2, transitioning to Stage 4-2-1.');
+                                        knifeMovementVideo.loop = false; // Stop video loop
+                                        transitionToStage4_2_1(); // Transition to the action reproduction stage
+                                    }, { once: true });
+                                    
+                                    const countdownInterval = setInterval(() => {
+                                        countdown--;
+                                        if (countdown < 0) { // Allow 0 to be displayed, then interval stops
+                                            clearInterval(countdownInterval);
+                                            // Audio 'ended' event will handle the transition after sound finishes
+                                        } else {
+                                            countdownTimer.textContent = countdown;
+                                        }
+                                    }, 1000); // Update every second
+                                } else {
+                                    console.error('Countdown timer for Stage 4-2 (#countdown-timer-stage4-2) not found!');
+                                }
+                            }, 3000); // 3 seconds delay for countdown initiation
                         });
                     } else {
-                        console.error('Stage 4-1-1 elements not found!');
+                        console.error('Stage 4-2 container or knife movement video not found!');
                     }
                 }
 
-            // Set initial stage music via AudioManager
-            // This ensures audioManager is initialized before being used by keydown listener
-            // which might fire before DOMContentLoaded if script is deferred or something similar (though unlikely here)
-            if (audioManager) { // Check if audioManager is initialized
-                audioManager.setStageMusic('stage0Music');
+                // Function to transition to Stage 4-2-1 (Knife Action Reproduction Prompt)
+                function transitionToStage4_2_1() {
+                    console.log('Transitioning to Stage 4-2-1 for Knife Action Reproduction');
+                    const stage4_2Container = document.getElementById('stage4-2-container');
+                    const stage4_2_1Container = document.getElementById('stage4-2-1-container');
+                    const messageElement = document.getElementById('action-reproduction-message-stage4-2-1');
+
+                    // 1. Fade out Stage 4-2 elements
+                    if (stage4_2Container) {
+                        stage4_2Container.style.opacity = '0';
+                        stage4_2Container.addEventListener('transitionend', function onStage4_2FadeOut() {
+                            stage4_2Container.style.display = 'none';
+                            stage4_2Container.removeEventListener('transitionend', onStage4_2FadeOut);
+                        }, { once: true });
+                    }
+
+                    // 2. Prepare and show Stage 4-2-1 elements
+                    if (stage4_2_1Container && messageElement) {
+                        stage4_2_1Container.style.display = 'flex'; 
+                        
+                        requestAnimationFrame(() => {
+                            stage4_2_1Container.style.opacity = '1';
+                            currentStage = 'stage4-2-1'; // Update current stage
+
+                            console.log('Showing Stage 4-2-1 message. Will transition to Stage 2 after 10 seconds.');
+
+                            setTimeout(async () => {
+                                if (currentStage !== 'stage4-2-1') return;
+                                console.log('Stage 4-2-1 (Knife) action reproduction time ended. Checking completion status.');
+                                const completionStatus = await markTagAsCompletedOnServer(TAG_NAMES.knife);
+                                if (completionStatus.all_completed) {
+                                    transitionToStage5();
+                                } else {
+                                    transitionToStage2(true); // Pass true if Stage 2 expects it
+                                }
+                            }, 10000); // 10-second delay
+                        });
+                    } else {
+                        console.error('Stage 4-2-1 elements (container or message) not found!');
+                        transitionToStage2(); // Fallback
+                    }
+                }
+
+                // Function to transition to Stage 3-3 (Phone Scan)
+                function transitionToStage3_3() {
+                    console.log('Transitioning to Stage 3-3 for Phone Scan');
+                    const stage2Container = document.getElementById('stage2-container');
+                    const stage3_3Container = document.getElementById('stage3-3-container');
+                    const phoneScanVideo = document.getElementById('phone-scan-video');
+                    const husbandImage = document.getElementById('husband-image');
+
+                    if (rfidSocket && rfidSocket.connected) {
+                        rfidSocket.emit('stop_rfid_scan');
+                        console.log('Requested backend to STOP RFID scan for Stage 3-3.');
+                    }
+
+                    if (stage2Container) {
+                        stage2Container.style.opacity = '0';
+                        stage2Container.addEventListener('transitionend', function onStage2FadeOut() {
+                            stage2Container.style.display = 'none';
+                            stage2Container.removeEventListener('transitionend', onStage2FadeOut);
+                        }, { once: true });
+                    }
+
+                    if (stage3_3Container && phoneScanVideo && husbandImage) {
+                        stage3_3Container.style.display = 'flex';
+                        currentStage = 'stage3-3'; 
+
+                        requestAnimationFrame(() => {
+                            stage3_3Container.style.opacity = '1';
+                            phoneScanVideo.src = 'assets/videos/phone_scan.mp4';
+                            phoneScanVideo.currentTime = 0;
+                            phoneScanVideo.play().catch(error => console.error("Phone scan video play failed:", error));
+                            audioManager.playSound('phoneScanAudio');
+                            audioManager.playSound('scanningSFX'); // Play scanning sound effect as requested
+
+                            phoneScanVideo.onended = () => {
+                                console.log('Phone scan video finished.');
+                                phoneScanVideo.style.display = 'none'; 
+                                husbandImage.style.display = 'block'; 
+                                audioManager.playSound('phoneContactAudio');
+
+                                const husbandSound = audioManager.sounds['phoneContactAudio'].element;
+                                const transitionToNextOrFallback = () => {
+                                    if (currentEPC) {
+                                        scannedTags.add(currentEPC);
+                                        console.log(`Phone EPC ${currentEPC} added to scannedTags. Total scanned: ${scannedTags.size}`);
+                                        currentEPC = null; 
+                                    }
+                                    transitionToStage4_3();
+                                };
+                                
+                                let fallbackTimeoutId = setTimeout(() => {
+                                     if (currentStage === 'stage3-3') {
+                                        console.warn('Husband contact audio did not end or event listener failed, transitioning to Stage 4-3 via timeout.');
+                                        husbandSound.removeEventListener('ended', onSoundEnd); // Clean up just in case
+                                        transitionToNextOrFallback();
+                                     }
+                                }, 8000); // Slightly longer than typical audio + buffer
+
+                                const onSoundEnd = () => {
+                                    clearTimeout(fallbackTimeoutId);
+                                    console.log('Husband contact audio ended, transitioning to Stage 4-3.');
+                                    transitionToNextOrFallback();
+                                };
+                                husbandSound.addEventListener('ended', onSoundEnd, { once: true });
+                            };
+                        });
+                    } else {
+                        console.error('Stage 3-3 elements (container, video, or image) not found!');
+                    }
+                }
+
+                // Function to transition to Stage 4-3 (Phone Movement)
+function transitionToStage4_3() {
+    console.log('Transitioning to Stage 4-3 for Phone Movement');
+    const stage3_3Container = document.getElementById('stage3-3-container');
+    const stage4_3Container = document.getElementById('stage4-3-container');
+    const phoneMovementVideo = document.getElementById('phone-movement-video');
+    const countdownTimer = document.getElementById('countdown-timer-stage4-3');
+
+    if (stage3_3Container) {
+        stage3_3Container.style.opacity = '0';
+        stage3_3Container.addEventListener('transitionend', function onStage3_3FadeOut() {
+            stage3_3Container.style.display = 'none';
+            stage3_3Container.removeEventListener('transitionend', onStage3_3FadeOut);
+        }, { once: true });
+    }
+
+    if (stage4_3Container && phoneMovementVideo && countdownTimer) {
+        stage4_3Container.style.display = 'flex';
+        currentStage = 'stage4-3';
+
+        requestAnimationFrame(() => {
+            stage4_3Container.style.opacity = '1';
+            phoneMovementVideo.src = 'assets/videos/phone_movement.mp4'; // Ensure src is set
+            phoneMovementVideo.currentTime = 0;
+            phoneMovementVideo.loop = true;
+            phoneMovementVideo.play().catch(error => console.error("Phone movement video play failed:", error));
+            
+            let countdownInterval; 
+
+            setTimeout(() => {
+                if (currentStage !== 'stage4-3') return; 
+                countdownTimer.style.display = 'block';
+                let countdown = 6;
+                countdownTimer.textContent = countdown;
+                
+                audioManager.playSound('countdownBeeping');
+                const countdownAudio = audioManager.sounds['countdownBeeping'].element;
+                
+                countdownAudio.addEventListener('ended', () => {
+                    if (currentStage !== 'stage4-3') return; 
+                    console.log('Countdown audio ended for Phone, transitioning to stage4-3-1');
+                    clearInterval(countdownInterval); 
+                    phoneMovementVideo.loop = false; 
+                    transitionToStage4_3_1();
+                }, { once: true });
+
+                countdownInterval = setInterval(() => {
+                    if (currentStage !== 'stage4-3') {
+                        clearInterval(countdownInterval);
+                        return;
+                    }
+                    countdown--;
+                    if (countdown <= 0) {
+                        clearInterval(countdownInterval);
+                        // Transition is handled by audio 'ended' event
+                    } else {
+                        countdownTimer.textContent = countdown;
+                    }
+                }, 1000);
+            }, 3000); 
+        });
+    } else {
+        console.error('Stage 4-3 elements (container, video, or countdown) not found!');
+    }
+}
+
+// Function to transition to Stage 4-3-1 (Phone Action Reproduction Prompt)
+function transitionToStage4_3_1() {
+    console.log('Transitioning to Stage 4-3-1 for Phone Action Reproduction');
+    const stage4_3Container = document.getElementById('stage4-3-container');
+    const stage4_3_1Container = document.getElementById('stage4-3-1-container');
+
+    if (stage4_3Container) {
+        stage4_3Container.style.opacity = '0';
+        stage4_3Container.addEventListener('transitionend', function onStage4_3FadeOut() {
+            stage4_3Container.style.display = 'none';
+            stage4_3Container.removeEventListener('transitionend', onStage4_3FadeOut);
+        }, { once: true });
+    }
+
+    if (stage4_3_1Container) {
+        stage4_3_1Container.style.display = 'flex';
+        currentStage = 'stage4-3-1';
+        
+        requestAnimationFrame(() => {
+            stage4_3_1Container.style.opacity = '1';
+            console.log('Showing Stage 4-3-1 message. Will transition to Stage 2 after 10 seconds.');
+            
+            if (currentEPC) { // Marking phone as scanned
+                scannedTags.add(currentEPC);
+                console.log(`Tag ${currentEPC} (phone) has completed its flow and is now permanently marked as scanned.`);
+                console.log('Currently scanned tags:', Array.from(scannedTags));
+                currentEPC = null; 
             }
+
+            setTimeout(async () => {
+                if (currentStage !== 'stage4-3-1') return;
+                console.log('Stage 4-3-1 (Phone) action reproduction time ended. Checking completion status.');
+                const completionStatus = await markTagAsCompletedOnServer(TAG_NAMES.phone);
+                if (completionStatus.all_completed) {
+                    transitionToStage5();
+                } else {
+                    transitionToStage2(true);
+                }
+            }, 10000); 
+        });
+    } else {
+        console.error('Stage 4-3-1 container not found!');
+        transitionToStage2(true); 
+    }
+}
+
+// Function to transition to Stage 4-1-1 (Action Reproduction Prompt for Cup)
+function transitionToStage4_1_1() {
+    console.log('Entering transitionToStage4_1_1. currentEPC is:', currentEPC);
+    console.log('Transitioning to Stage 4-1-1 for Action Reproduction');
+    const stage4_1Container = document.getElementById('stage4-1-container');
+    const stage4_1_1Container = document.getElementById('stage4-1-1-container');
+
+    if (stage4_1Container) {
+        stage4_1Container.style.opacity = '0';
+        stage4_1Container.addEventListener('transitionend', function onStage4_1FadeOut() {
+            stage4_1Container.style.display = 'none';
+            stage4_1Container.removeEventListener('transitionend', onStage4_1FadeOut);
+        }, { once: true });
+    }
+
+    if (stage4_1_1Container) {
+        stage4_1_1Container.style.display = 'flex'; 
+        
+        requestAnimationFrame(() => {
+            stage4_1_1Container.style.opacity = '1';
+            currentStage = 'stage4-1-1'; 
+
+            if (currentEPC) {
+                scannedTags.add(currentEPC);
+                console.log(`Tag ${currentEPC} (cup) has completed its flow and is now permanently marked as scanned.`);
+                console.log('Currently scanned tags:', Array.from(scannedTags));
+                currentEPC = null; 
+            }
+            
+            setTimeout(async () => {
+                if (currentStage !== 'stage4-1-1') return;
+                console.log('Stage 4-1-1 (Cup) action reproduction time ended. Checking completion status.');
+                const completionStatus = await markTagAsCompletedOnServer(TAG_NAMES.cup);
+                if (completionStatus.all_completed) {
+                    transitionToStage5();
+                } else {
+                    transitionToStage2(true);
+                }
+            }, 3000); 
+        });
+    } else {
+        console.error('Stage 4-1-1 container not found!');
+        transitionToStage2(true); 
+    }
+}
+
+            // Function to transition to Stage 3-4 (Monitor Scan)
+            function transitionToStage3_4() {
+                console.log('Transitioning to Stage 3-4 for Monitor Scan');
+                hideAllStages();
+                currentStage = 'stage3-4';
+
+                const monitorScanMessageEl = document.getElementById('monitor-scan-message');
+                if (monitorScanMessageEl) {
+                    monitorScanMessageEl.textContent = ''; // Force empty text
+                }
+
+                const stage3_4Container = document.getElementById('stage3-4-container');
+                const monitorScanVideo = document.getElementById('monitor-scan-video');
+                // const monitorScanMessage = document.getElementById('monitor-scan-message'); // Already handled by RFID data
+
+                if (stage3_4Container && monitorScanVideo) {
+                    stage3_4Container.style.display = 'flex';
+                    requestAnimationFrame(() => {
+                        stage3_4Container.style.opacity = '1';
+                        monitorScanVideo.currentTime = 0;
+                        monitorScanVideo.play().catch(error => console.error("Monitor scan video play failed:", error));
+                        audioManager.playSound('monitorScanVoice');
+                        audioManager.playSound('scanningSFX'); // Shared scanning sound
+
+                        monitorScanVideo.onended = () => {
+                            console.log('Monitor scan video finished.');
+                            monitorScanVideo.style.display = 'none';
+                            const monitorSceneImage = document.getElementById('monitor-scene-image');
+                            if (monitorSceneImage) {
+                                monitorSceneImage.style.display = 'block'; // Glitch effect is already on the class
+                            }
+                            audioManager.stopSound('monitorScanVoice');
+                            audioManager.stopSound('scanningSFX');
+                            audioManager.playSound('monitorSceneVoice');
+                            
+                            const monitorSceneVoiceElement = audioManager.sounds['monitorSceneVoice'].element;
+                            monitorSceneVoiceElement.addEventListener('ended', function onMonitorSceneVoiceEnded() {
+                                console.log('Monitor scene voice ended, waiting 2s before transitioning to Stage 4-4');
+                                setTimeout(() => {
+                                    transitionToStage4_4();
+                                }, 2000);
+                                monitorSceneVoiceElement.removeEventListener('ended', onMonitorSceneVoiceEnded);
+                            }, { once: true });
+                        };
+                    });
+                } else {
+                    console.error('Stage 3-4 elements not found!');
+                }
+            }
+
+            // Function to transition to Stage 4-4 (Monitor Movement)
+            function transitionToStage4_4() {
+                console.log('Transitioning to Stage 4-4 for Monitor Movement');
+                hideAllStages();
+                currentStage = 'stage4-4';
+                const stage4_4Container = document.getElementById('stage4-4-container');
+                const monitorMovementVideo = document.getElementById('monitor-movement-video');
+
+                if (stage4_4Container && monitorMovementVideo) {
+                    stage4_4Container.style.display = 'flex';
+                    requestAnimationFrame(() => {
+                        stage4_4Container.style.opacity = '1';
+                        monitorMovementVideo.currentTime = 0;
+                        monitorMovementVideo.play().catch(error => console.error("Monitor movement video play failed:", error));
+                        
+                        setTimeout(() => {
+                            const countdownTimer = document.getElementById('countdown-timer-stage4-4');
+                            if (countdownTimer) {
+                                countdownTimer.style.display = 'block';
+                                let countdown = 6;
+                                countdownTimer.textContent = countdown;
+                                audioManager.playSound('countdownBeeping');
+                                const countdownAudio = audioManager.sounds['countdownBeeping'].element;
+                                countdownAudio.addEventListener('ended', () => {
+                                    console.log('Countdown audio ended for Monitor, transitioning to stage4-4-1');
+                                    monitorMovementVideo.loop = false;
+                                    transitionToStage4_4_1();
+                                }, { once: true });
+                                
+                                const countdownInterval = setInterval(() => {
+                                    countdown--;
+                                    if (countdown <= 0) {
+                                        clearInterval(countdownInterval);
+                                        countdownTimer.style.display = 'none';
+                                    } else {
+                                        countdownTimer.textContent = countdown;
+                                    }
+                                }, 1000);
+                            }
+                        }, 3000); // 3-second delay before countdown starts
+
+                        monitorMovementVideo.onended = () => {
+                            console.log('Monitor movement video finished (if not looped and countdown logic completes first).');
+                        };
+                    });
+                } else {
+                    console.error('Stage 4-4 elements not found!');
+                }
+            }
+
+            // Function to transition to Stage 4-4-1 (Monitor Action Reproduction Prompt)
+            function transitionToStage4_4_1() {
+                console.log('Transitioning to Stage 4-4-1 for Monitor Action Prompt');
+                hideAllStages();
+                currentStage = 'stage4-4-1';
+                const stage4_4_1Container = document.getElementById('stage4-4-1-container');
+
+                if (stage4_4_1Container) {
+                    stage4_4_1Container.style.display = 'flex';
+                    requestAnimationFrame(() => {
+                        stage4_4_1Container.style.opacity = '1';
+                        if (currentEPC) {
+                           scannedTags.add(currentEPC);
+                           console.log(`Tag ${currentEPC} (monitor) processed and recorded.`);
+                           currentEPC = null; 
+                        }
+                        setTimeout(async () => {
+                            if (currentStage !== 'stage4-4-1') return;
+                            console.log('Stage 4-4-1 (Monitor) action reproduction time ended. Checking completion status.');
+                            const completionStatus = await markTagAsCompletedOnServer(TAG_NAMES.monitor);
+                            if (completionStatus.all_completed) {
+                                transitionToStage5();
+                            } else {
+                                transitionToStage2(true);
+                            }
+                        }, 3000); // 3-second delay
+                    });
+                } else {
+                    console.error('Stage 4-4-1 elements not found!');
+                }
+            }
+        }); // Closes DOMContentLoaded
         </script>
     </body>
 </html>
