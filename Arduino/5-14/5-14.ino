@@ -56,7 +56,7 @@ const int totalVibrationPulses = 3;   // 总共震动几次 (3次ON需要6个状
 // 3: 绿色常亮
 // 4: 红色带尾巴转圈
 // 5: 蓝色带尾巴转圈
-int ledMode = 2;  // 初始默认模式为关闭
+int ledMode = 0;  // 初始默认模式为关闭
 
 bool shouldAnimate = false;           // 是否应该执行动画更新
 int currentLed = 0;                   // 当前动画的起始 LED 序号
