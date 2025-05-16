@@ -7,6 +7,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Rajdhani:wght@500;700&family=Audiowide&family=Exo+2:wght@400;700&family=Syncopate:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script> <!-- Three.js CDN -->
+    <script src="js/esp32.js"></script> <!-- ESP32 BLE Connection -->
 </head>
 <body>
     <div class="container">
@@ -26,8 +27,6 @@
             <div class="modal-content">
                 <span class="close-button" id="close-modal-btn">&times;</span>
                 <h2>Connect to ESP32</h2>
-                <label for="esp32-ip">ESP32 IP Address:</label>
-                <input type="text" id="esp32-ip" name="esp32-ip" value="crimescene.local">
                 <button id="connect-esp32-btn">Connect</button>
                 <p id="esp32-modal-status">Status: Idle</p>
             </div>
@@ -252,129 +251,141 @@
                     titleElement.classList.add('flicker-effect'); 
                 }
 
-                // Function to update UI based on connection state
-                function updateUI(state, message = '') {
-                    statusIndicator.classList.add('visible');
-                    switch (state) {
-                        case 'connecting':
-                            modalStatus.textContent = `Status: Connecting to ${esp32IpInput.value}... ${message}`;
-                            statusText.textContent = 'Connecting...';
-                            statusText.className = 'connecting';
-                            connectEsp32Btn.disabled = true;
-                            connectEsp32Btn.textContent = 'Connecting...';
-                            break;
-                        case 'connected':
-                            modalStatus.textContent = `Status: Connected to ${esp32IpInput.value}!`;
-                            statusText.textContent = 'Connected';
-                            statusText.className = 'connected';
-                            connectEsp32Btn.disabled = false;
-                            connectEsp32Btn.textContent = 'Disconnect'; 
-                            modal.style.display = 'none'; 
-                            break;
-                        case 'disconnected':
-                            modalStatus.textContent = `Status: Disconnected. ${message}`;
-                            statusText.textContent = 'Disconnected';
-                            statusText.className = 'disconnected';
-                            connectEsp32Btn.disabled = false;
-                            connectEsp32Btn.textContent = 'Connect';
-                            break;
-                        case 'error':
-                            modalStatus.textContent = `Status: Error. ${message}`;
-                            statusText.textContent = 'Error';
-                            statusText.className = 'disconnected'; 
-                            connectEsp32Btn.disabled = false;
-                            connectEsp32Btn.textContent = 'Connect';
-                            break;
-                        default: 
-                            modalStatus.textContent = 'Status: Idle. Press Space to toggle.';
-                            statusText.textContent = 'Disconnected';
-                            statusText.className = 'disconnected';
-                            statusIndicator.classList.remove('visible'); 
+                // ESP32 BLE Connection Setup
+                // 使用已经声明的变量，避免重复声明
+                // modal -> esp32ConnectModal
+                // modalStatus -> esp32ModalStatus
+                // statusText -> esp32StatusText
+
+                // 检查ESP32BLEConnection类是否可用（来自js/esp32.js）
+                if (typeof ESP32BLEConnection === 'undefined') {
+                    console.error('ESP32BLEConnection类未加载。请检查脚本引用。');
+                    if (modalStatus) modalStatus.textContent = '错误：BLE脚本未加载。';
+                    // 如果类未加载，禁用连接按钮
+                    if (connectEsp32Btn) connectEsp32Btn.disabled = true;
+                } else {
+                    // 创建ESP32BLE连接对象
+                    esp32Connection = new ESP32BLEConnection();
+
+                    // 使用原有的updateUI函数，但修改变量引用
+                    function updateUI(state, message = '') {
+                        statusIndicator.classList.add('visible');
+                        switch (state) {
+                            case 'connecting':
+                                modalStatus.textContent = `状态：正在连接... ${message}`;
+                                statusText.textContent = '正在连接...';
+                                statusText.className = 'connecting';
+                                connectEsp32Btn.disabled = true;
+                                connectEsp32Btn.textContent = '正在连接...';
+                                break;
+                            case 'connected':
+                                modalStatus.textContent = `状态：已连接！`;
+                                statusText.textContent = '已连接';
+                                statusText.className = 'connected';
+                                connectEsp32Btn.disabled = false;
+                                connectEsp32Btn.textContent = '断开连接'; 
+                                modal.style.display = 'none'; 
+                                break;
+                            case 'disconnected':
+                                modalStatus.textContent = `状态：已断开连接。${message}`;
+                                statusText.textContent = '已断开连接';
+                                statusText.className = 'disconnected';
+                                connectEsp32Btn.disabled = false;
+                                connectEsp32Btn.textContent = '连接';
+                                break;
+                            case 'error':
+                                modalStatus.textContent = `状态：错误。${message}`;
+                                statusText.textContent = '错误';
+                                statusText.className = 'disconnected'; 
+                                connectEsp32Btn.disabled = false;
+                                connectEsp32Btn.textContent = '连接';
+                                break;
+                            default: 
+                                modalStatus.textContent = '状态：空闲。按空格键切换。';
+                                statusText.textContent = '已断开连接';
+                                statusText.className = 'disconnected';
+                                statusIndicator.classList.remove('visible'); 
+                        }
                     }
-                }
 
-                // Show modal by default
-                modal.style.display = 'block';
-                updateUI('idle');
+                    // 设置连接成功回调 - 使用正确的方法注册回调
+                    esp32Connection.onConnect(function() {
+                        console.log('ESP32 BLE已连接');
+                        updateUI('connected');
+                        // 如果当前是stage0，设置LED为蓝色常亮
+                        if (currentStage === 'stage0') {
+                            esp32Connection.setLedMode(2); // 2对应蓝色常亮
+                            console.log('已发送命令到ESP32：设置LED为蓝色常亮（stage0）');
+                        }
+                    });
 
-                closeModalBtn.onclick = () => {
-                    modal.style.display = 'none';
-                }
+                    // 设置断开连接回调 - 使用正确的方法注册回调
+                    esp32Connection.onDisconnect(function(reason) {
+                        console.log('ESP32 BLE已断开连接', reason ? '原因: ' + reason : '');
+                        updateUI('disconnected');
+                    });
 
-                window.onclick = (event) => {
-                    if (event.target == modal) {
-                        // modal.style.display = 'none'; 
+                    // 设置数据接收回调 - 使用正确的方法注册回调
+                    esp32Connection.onData(function(data) {
+                        console.log('从ESP32接收到数据:', data);
+                        // 处理MPU数据或其他通知
+                    });
+
+                    // Show modal by default
+                    modal.style.display = 'block';
+                    updateUI('idle');
+
+                    // 使用已有的事件处理程序
+                    // closeModalBtn.onclick已在前面定义
+
+                    window.onclick = (event) => {
+                        if (event.target == modal) {
+                            // esp32ConnectModal.style.display = 'none'; 
+                        }
                     }
-                }
 
-                document.addEventListener('keydown', (event) => {
-                    if (event.code === 'Space') {
-                        event.preventDefault(); 
-                        if (modal.style.display === 'block') {
-                            modal.style.display = 'none';
+                    // 使用已有的keydown事件处理程序，但修改检查条件
+                    document.addEventListener('keydown', (event) => {
+                        if (event.code === 'Space') {
+                            event.preventDefault(); 
+                            if (modal.style.display === 'block') {
+                                modal.style.display = 'none';
+                            } else {
+                                modal.style.display = 'block';
+                            }
+                            // Update status in modal if shown
+                            if (esp32Connection && esp32Connection.isConnected()) {
+                                updateUI('connected');
+                            } else if (connectEsp32Btn.disabled) { 
+                                updateUI('connecting', modalStatus.textContent.replace('状态：', ''));
+                            } else {
+                                updateUI('disconnected', modalStatus.textContent.replace('状态：', ''));
+                            }
+                        }
+                    });
+
+                    // 替换原有的点击事件处理程序
+                    // 移除之前的事件监听器
+                    const newConnectBtn = connectEsp32Btn.cloneNode(true);
+                    connectEsp32Btn.parentNode.replaceChild(newConnectBtn, connectEsp32Btn);
+                    const connectEsp32BtnNew = document.getElementById('connect-esp32-btn');
+                    
+                    connectEsp32BtnNew.addEventListener('click', async () => {
+                        if (esp32Connection.isConnected()) {
+                            esp32Connection.disconnect();
                         } else {
-                            modal.style.display = 'block';
-                        }
-                        // Update status in modal if shown
-                        if (esp32Connection && esp32Connection.isConnected) {
-                            updateUI('connected');
-                        } else if (esp32Connection && connectEsp32Btn.disabled) { 
-                            updateUI('connecting', modalStatus.textContent.replace('Status: ', ''));
-                        }
-                        else {
-                            updateUI('disconnected', modalStatus.textContent.replace('Status: ', ''));
-                        }
-                    }
-                });
-
-                connectEsp32Btn.addEventListener('click', () => {
-                    const ipAddress = esp32IpInput.value.trim();
-                    if (!ipAddress) {
-                        alert('Please enter an ESP32 IP address.');
-                        return;
-                    }
-
-                    if (esp32Connection && esp32Connection.isConnected) {
-                        esp32Connection.disconnect();
-                    } else {
-                        if (esp32Connection) { 
-                            esp32Connection.disconnect(); 
-                        }
-                        updateUI('connecting'); // Moved updateUI call to before creating new connection
-                        esp32Connection = new ESP32Connection(ipAddress);
-
-                        esp32Connection.onConnect(() => {
-                            updateUI('connected');
-                            console.log('已连接到ESP32。'); 
-
-                            // If current stage is 'stage0' and connection is established, set LED to blue
-                            if (currentStage === 'stage0' && esp32Connection && esp32Connection.isConnected) {
-                                esp32Connection.sendCommand("setLedMode", { mode: 2 }); // 2 corresponds to blue solid light
-                                console.log('Sent command to ESP32 via sendCommand: setLedMode to blue for stage0.');
+                            try {
+                                updateUI('connecting');
+                                console.log('正在尝试通过BLE连接到ESP32...');
+                                await esp32Connection.connect();
+                                // onConnect回调将处理状态更新
+                            } catch (error) {
+                                console.error('BLE连接失败:', error);
+                                updateUI('error', error.message || '连接失败');
                             }
-                        });
-
-                        esp32Connection.onDisconnect((event) => {
-                            let message = event && event.reason ? event.reason : '连接丢失或失败。';
-                            if(event && event.code === 1000 && event.reason === '主动断开') { 
-                                message = "用户主动断开连接。";
-                            } else if (esp32Connection && esp32Connection.reconnectAttempts >= esp32Connection.maxReconnectAttempts) {
-                                message = "多次尝试后连接失败。";
-                            }
-                            updateUI('disconnected', message);
-                            console.log(`与ESP32断开连接: ${message}`); 
-                        });
-                        
-                        esp32Connection.onData((data) => {
-                            console.log('从ESP32接收到数据:', data); 
-
-                            // Future: if ESP32 sends stage changes, call audioManager.setStageMusic() or similar
-                        });
-
-                        // Directly call connect, removing the problematic if condition
-                        esp32Connection.connect();
-                    }
-                });
+                        }
+                    });
+                }
 
                 // Listen for key presses for stage transitions
                 document.addEventListener('keyup', (event) => {

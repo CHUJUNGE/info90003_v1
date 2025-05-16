@@ -58,8 +58,8 @@ This repository contains the interactive crime scene reconstruction system proje
 - **灯效(主体)**: 
   - 开始检测前: 蓝光长亮
   - 动作检测中: 蓝光流动
-  - 高匹配度: 绿色闪烁
-  - 低匹配度: 黄色闪烁
+  - 高匹配度: 绿色常亮
+  - 低匹配度: 绿色常亮
 - **灯效(手套)**: 同主体灯效
 - **马达**: 匹配开始震动一下，匹配结束震动一下
 
