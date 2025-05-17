@@ -43,10 +43,10 @@ const long debounceDelay = 50;  // 消抖延迟 (ms)
 // ====== 马达控制变量 ======
 bool motorActive = false;             // 马达是否正在震动
 int vibrationCount = 0;               // 震动次数计数
+int totalVibrations = 1;              // 总共需要震动的次数
 unsigned long lastVibrationTime = 0;  // 上次马达状态改变时间
 const long vibrationDuration = 200;   // 每次震动 ON 持续时间 (ms)
 const long vibrationInterval = 300;   // 每次震动 OFF 持续时间 (ms)
-const int totalVibrationPulses = 3;   // 总共震动几次 (3次ON需要6个状态变化)
 
 // ====== LED 控制变量和模式定义 ======
 // 模式定义：
@@ -121,7 +121,7 @@ void initMPU();
 void printStatus();
 void readMPU6050Data(); // Update MPU data handling to use BLE
 void checkButton(unsigned long currentTime);
-void startMotorVibration(unsigned long currentTime);
+void startMotorVibration(unsigned long currentTime, int type = 0);
 void handleMotor(unsigned long currentTime);
 void setLedMode(int mode);
 void handleLED(unsigned long currentTime);
@@ -160,9 +160,44 @@ class MyCommandCharacteristicCallbacks: public BLECharacteristicCallbacks {
                 Serial.println(requestedMode);
                 setLedMode(requestedMode); 
             } 
-            else if (receivedValue == "M") {
-                Serial.println("Requesting Motor Vibration");
-                startMotorVibration(millis());
+            else if (receivedValue.startsWith("M")) {
+                // 处理马达震动命令
+                // 先打印原始接收到的值（用于调试）
+                Serial.print("Raw motor command: [");
+                for (int i = 0; i < receivedValue.length(); i++) {
+                    Serial.print((int)receivedValue[i], HEX);
+                    Serial.print(" ");
+                }
+                Serial.println("]");
+                
+                // 去除首尾空白字符
+                receivedValue.trim();
+                
+                // 再次打印处理后的值（用于调试）
+                Serial.print("Trimmed motor command: [");
+                Serial.print(receivedValue);
+                Serial.println("]");
+                
+                if (receivedValue == "M0") {
+                    Serial.println("Stopping motor");
+                    motorActive = false;
+                    digitalWrite(MOTOR_PIN, LOW);
+                } else if (receivedValue == "M") {
+                    Serial.println("Single vibration (M)");
+                    startMotorVibration(millis(), 0);  // 单次震动
+                } else if (receivedValue == "M2") {
+                    Serial.println("Double vibration (M2)");
+                    startMotorVibration(millis(), 1);  // 两次震动
+                } else if (receivedValue == "M3") {
+                    Serial.println("Triple vibration (M3)");
+                    startMotorVibration(millis(), 2);  // 三次震动
+                } else if (receivedValue == "M4") {
+                    Serial.println("Continuous vibration (M4)");
+                    startMotorVibration(millis(), 3);  // 持续震动
+                } else {
+                    Serial.print("Unknown motor command: ");
+                    Serial.println(receivedValue);
+                }
             }
             // 可以加一个简单的响应机制，如果需要的话，比如通过另一个只读特征值
             // pCharacteristic->setValue("CMD_OK"); // Example response
@@ -178,6 +213,17 @@ void setup() {
   Serial.begin(UART_BAUD);
   while (!Serial);
   Serial.println("System Initialization - BLE Version");
+  
+  // 显示测试帮助信息
+  Serial.println("\n=== 马达测试 ===");
+  Serial.println("通过串口发送以下命令测试马达：");
+  Serial.println("1 - 单次震动 (M)");
+  Serial.println("2 - 两次震动 (M2)");
+  Serial.println("3 - 三次震动 (M3)");
+  Serial.println("4 - 持续震动 (M4)");
+  Serial.println("0 - 停止震动");
+  Serial.println("h - 显示帮助");
+  Serial.println("==============\n");
 
   // 初始化 MPU6050
   initMPU();
@@ -284,6 +330,53 @@ void initMPU() {
 
 
 // ====== 循环函数 ======\n
+// 测试马达震动的函数
+void testMotorVibration() {
+  if (Serial.available() > 0) {
+    char command = Serial.read();
+    
+    switch(command) {
+      case '1':
+        Serial.println("测试: 单次震动 (M)");
+        startMotorVibration(millis(), 0);
+        break;
+      case '2':
+        Serial.println("测试: 两次震动 (M2)");
+        startMotorVibration(millis(), 1);
+        break;
+      case '3':
+        Serial.println("测试: 三次震动 (M3)");
+        startMotorVibration(millis(), 2);
+        break;
+      case '4':
+        Serial.println("测试: 持续震动 (M4)，按'0'停止");
+        startMotorVibration(millis(), 3);
+        break;
+      case '0':
+        Serial.println("停止所有震动");
+        motorActive = false;
+        digitalWrite(MOTOR_PIN, LOW);
+        break;
+      case 'h':
+        Serial.println("\n=== 马达测试帮助 ===");
+        Serial.println("1 - 单次震动 (M)");
+        Serial.println("2 - 两次震动 (M2)");
+        Serial.println("3 - 三次震动 (M3)");
+        Serial.println("4 - 持续震动 (M4)");
+        Serial.println("0 - 停止震动");
+        Serial.println("h - 显示帮助");
+        Serial.println("=================\n");
+        break;
+      case '\n':
+      case '\r':
+        // 忽略换行符
+        break;
+      default:
+        Serial.println("未知命令，按'h'查看帮助");
+    }
+  }
+}
+
 void loop() {
   unsigned long currentTime = millis();
 
@@ -292,6 +385,9 @@ void loop() {
 
   // 处理马达震动
   handleMotor(currentTime);
+  
+  // 测试马达震动
+  testMotorVibration();
 
   // 检测按钮状态
   checkButton(currentTime);
@@ -401,101 +497,146 @@ void readMPU6050Data() { // Renamed from handleMPU and logic updated
 }
 
 
-// 检测按钮状态 - 此函数基本可以保留，但发送状态的方式会改变
+// 检测按钮状态 - 简化消抖逻辑，直接检测按钮状态并发送命令
 void checkButton(unsigned long currentTime) {
-// (保留您原有的 checkButton 函数内容，但移除 WebSocket 发送部分)
-// ...
+  static unsigned long lastButtonActionTime = 0;
+  static bool lastButtonState = HIGH;
   bool currentButtonState = digitalRead(BUTTON_PIN);
+  
+  // 如果按钮状态变化，更新状态并记录时间
   if (currentButtonState != lastButtonState) {
-    lastDebounceTime = currentTime; // 重置消抖计时器
-  }
-
-  if ((currentTime - lastDebounceTime) > debounceDelay) {
-    // 无论按钮状态是否改变，只要超过了消抖时间就更新
-    if (currentButtonState != lastButtonState) { // 确保只有在状态稳定变化后才操作
-      lastButtonState = currentButtonState;
-      if (currentButtonState == LOW) { // 按钮被按下
-        Serial.println("Button Pressed");
-        // -------- 移除/注释掉 WebSocket 发送 --------
-        // if (connectedClients > 0) {
-        //   DynamicJsonDocument doc(128);
-        //   doc["type"] = "buttonEvent";
-        //   doc["event"] = "pressed";
-        //   String message;
-        //   serializeJson(doc, message);
-        //   ws.textAll(message); 
-        // }
-        // --------------------------------------------
-        // 后续在这里添加通过BLE发送按钮按下事件的逻辑
-        // e.g., pCharacteristicStatus->setValue("BTN_PRESS"); pCharacteristicStatus->notify();
-
-      } else { // 按钮被释放
-        Serial.println("Button Released");
-         // -------- 移除/注释掉 WebSocket 发送 --------
-        // if (connectedClients > 0) {
-        //   DynamicJsonDocument doc(128);
-        //   doc["type"] = "buttonEvent";
-        //   doc["event"] = "released";
-        //   String message;
-        //   serializeJson(doc, message);
-        //   ws.textAll(message); 
-        // }
-        // --------------------------------------------
-        // 后续在这里添加通过BLE发送按钮释放事件的逻辑
+    lastButtonState = currentButtonState;
+    
+    // 按钮被按下（LOW 因为使用上拉电阻）
+    if (currentButtonState == LOW) {
+      // 防止重复触发，至少间隔500ms
+      if (currentTime - lastButtonActionTime > 500) {
+        lastButtonActionTime = currentTime;
+        
+        // 发送KEY1命令到前端
+        if (bleDeviceConnected && pMpuCharacteristic) {
+          // 发送JSON格式的命令
+          String jsonCommand = "{\"type\":\"button\",\"key\":\"KEY1\"}";
+          pMpuCharacteristic->setValue(jsonCommand.c_str());
+          pMpuCharacteristic->notify();
+          
+          // 同时发送简单的KEY1字符串，确保兼容性
+          pMpuCharacteristic->setValue("KEY1");
+          pMpuCharacteristic->notify();
+          
+          Serial.print("Button pressed: Sent KEY1 command: ");
+          Serial.println(jsonCommand);
+        } else {
+          Serial.println("Button pressed but not connected or MPU characteristic not available");
+          if (!bleDeviceConnected) {
+            Serial.println("Device not connected");
+          }
+          if (!pMpuCharacteristic) {
+            Serial.println("MPU characteristic not available");
+          }
+        }
       }
     }
   }
-  // 更新按钮状态以备下次检查
-  // lastButtonState = currentButtonState; // 这行应该在确认稳定变化后才执行，已移入if块
 }
 
-
-// 启动马达震动 - 此函数可以保留
-void startMotorVibration(unsigned long currentTime) {
-// (保留您原有的 startMotorVibration 函数内容)
-// ...
-  if (!motorActive) { // 仅在马达当前未激活时启动
-    motorActive = true;
-    vibrationCount = 0; // 重置震动次数
-    lastVibrationTime = currentTime; // 记录开始时间
-    digitalWrite(MOTOR_PIN, HIGH);   // 启动第一次震动
-    Serial.println("Motor vibration sequence started.");
-  } else {
-    Serial.println("Motor already active or finishing sequence.");
+// 启动马达震动
+// type: 0=单次震动, 1=两次震动, 2=三次震动, 3=持续震动
+void startMotorVibration(unsigned long currentTime, int type) {
+  if (motorActive) {
+    Serial.println("Motor already active, ignoring new command");
+    return;
   }
+  
+  motorActive = true;
+  vibrationCount = 0;
+  
+  switch(type) {
+    case 0:  // M - 单次震动
+      totalVibrations = 1;
+      break;
+    case 1:  // M2 - 两次震动
+      totalVibrations = 2;
+      break;
+    case 2:  // M3 - 三次震动
+      totalVibrations = 3;
+      break;
+    case 3:  // M4 - 持续震动
+      totalVibrations = -1;  // -1 表示持续震动
+      break;
+    default:
+      totalVibrations = 1;  // 默认单次震动
+  }
+  
+  lastVibrationTime = currentTime;
+  digitalWrite(MOTOR_PIN, HIGH);
+  Serial.print("Motor vibration started. Type: ");
+  Serial.println(type);
 }
 
-
-// 处理马达震动状态 - 此函数可以保留
+// 处理马达震动状态
 void handleMotor(unsigned long currentTime) {
-// (保留您原有的 handleMotor 函数内容)
-// ...
- if (motorActive) {
-    // 计算当前震动脉冲是否完成 (ON 状态)
-    if (digitalRead(MOTOR_PIN) == HIGH && (currentTime - lastVibrationTime >= vibrationDuration)) {
-      digitalWrite(MOTOR_PIN, LOW); // 关闭马达，进入 OFF 状态
-      lastVibrationTime = currentTime; // 更新上次状态改变时间
-      vibrationCount++;              // 增加状态改变计数 (一次 ON->OFF 算一次)
-      Serial.print("Motor OFF, count: "); Serial.println(vibrationCount);
-    } 
-    // 计算当前间歇是否完成 (OFF 状态)，并且还未完成所有脉冲
-    else if (digitalRead(MOTOR_PIN) == LOW && (currentTime - lastVibrationTime >= vibrationInterval) && (vibrationCount < totalVibrationPulses * 2)) {
-      digitalWrite(MOTOR_PIN, HIGH); // 启动马达，进入 ON 状态
-      lastVibrationTime = currentTime; // 更新上次状态改变时间
-      vibrationCount++;              // 增加状态改变计数 (一次 OFF->ON 算一次)
-       Serial.print("Motor ON, count: "); Serial.println(vibrationCount);
+  static unsigned long lastDebugTime = 0;
+  
+  if (!motorActive) return;
+  
+  // 每500ms输出一次调试信息
+  if (currentTime - lastDebugTime >= 500) {
+    lastDebugTime = currentTime;
+    Serial.print("Motor state - Active: ");
+    Serial.print(motorActive);
+    Serial.print(", Pin state: ");
+    Serial.print(digitalRead(MOTOR_PIN));
+    Serial.print(", Vibration count: ");
+    Serial.print(vibrationCount);
+    Serial.print("/");
+    Serial.print(totalVibrations * 2);
+    Serial.print(", Total vibs: ");
+    Serial.println(totalVibrations);
+  }
+  
+  unsigned long elapsed = currentTime - lastVibrationTime;
+  bool isMotorOn = digitalRead(MOTOR_PIN) == HIGH;
+  
+  // 持续震动模式 (M4)
+  if (totalVibrations == -1) {
+    if (isMotorOn && elapsed >= vibrationDuration) {
+      digitalWrite(MOTOR_PIN, LOW);
+      lastVibrationTime = currentTime;
+      Serial.println("M4: Motor OFF");
+    } else if (!isMotorOn && elapsed >= vibrationInterval) {
+      digitalWrite(MOTOR_PIN, HIGH);
+      lastVibrationTime = currentTime;
+      Serial.println("M4: Motor ON");
     }
-
-    // 如果完成了所有预定的脉冲 (totalVibrationPulses 次 ON, totalVibrationPulses 次 OFF)
-    if (vibrationCount >= totalVibrationPulses * 2) {
-      motorActive = false;        // 停止震动序列
-      digitalWrite(MOTOR_PIN, LOW); // 确保马达关闭
-      vibrationCount = 0;         // 重置计数器
-      Serial.println("Motor vibration sequence completed.");
-    }
+    return;
+  }
+  
+  // 有限次震动模式 (M, M2, M3)
+  if (vibrationCount >= totalVibrations * 2) {
+    // 震动完成
+    motorActive = false;
+    digitalWrite(MOTOR_PIN, LOW);
+    Serial.print("Motor vibration completed. Total pulses: ");
+    Serial.println(vibrationCount);
+    return;
+  }
+  
+  // 处理震动状态切换
+  if (isMotorOn && elapsed >= vibrationDuration) {
+    digitalWrite(MOTOR_PIN, LOW);
+    lastVibrationTime = currentTime;
+    vibrationCount++;
+    Serial.print("Pulse OFF, count: ");
+    Serial.println(vibrationCount);
+  } else if (!isMotorOn && elapsed >= vibrationInterval) {
+    digitalWrite(MOTOR_PIN, HIGH);
+    lastVibrationTime = currentTime;
+    vibrationCount++;
+    Serial.print("Pulse ON, count: ");
+    Serial.println(vibrationCount);
   }
 }
-
 
 // 设置 LED 模式 - 此函数可以保留，并由BLE命令调用
 void setLedMode(int mode) {

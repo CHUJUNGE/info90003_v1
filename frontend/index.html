@@ -328,7 +328,93 @@
                     // 设置数据接收回调 - 使用正确的方法注册回调
                     esp32Connection.onData(function(data) {
                         console.log('从ESP32接收到数据:', data);
-                        // 处理MPU数据或其他通知
+                        
+                        // 处理KEY1命令，模拟键盘按下"1"键
+                        if (data.type === 'mpu_string' && data.payload === 'KEY1') {
+                            console.log('收到KEY1命令，模拟键盘按下1键');
+                            // 直接调用转换到Stage1的逻辑，而不是模拟键盘事件
+                            if (!isTransitioningToStage1) {
+                                isTransitioningToStage1 = true;
+                                console.log('ESP32按钮触发: 转换到Stage 1');
+                                
+                                const titleElement = document.querySelector('.title'); 
+                                const stage1WelcomeMessage = document.getElementById('stage1-welcome-message');
+                                
+                                // 1. 停止Stage 0音乐并开始Stage 0元素消失
+                                if (audioManager) {
+                                    audioManager.setStageMusic(null); // 停止stage 0音乐
+                                }
+                                
+                                if (titleElement) {
+                                    titleElement.classList.remove('flicker-effect'); 
+                                    titleElement.style.opacity = '0';
+                                    titleElement.style.pointerEvents = 'none';
+                                }
+                                
+                                if (window.currentGlobe && typeof window.currentGlobe.dissipate === 'function') {
+                                    window.currentGlobe.dissipate(); // 开始地球消散
+                                }
+                                
+                                // 2. 播放转场音效
+                                if (audioManager) {
+                                    audioManager.playSound('stage1WelcomeSFX');
+                                }
+                                
+                                // 3. 延迟显示Stage 1欢迎信息
+                                if (stage1WelcomeMessage) {
+                                    stage1WelcomeMessage.style.display = 'block';
+                                    
+                                    setTimeout(() => {
+                                        requestAnimationFrame(() => {
+                                            stage1WelcomeMessage.style.opacity = '1';
+                                            stage1WelcomeMessage.style.pointerEvents = 'auto';
+                                        });
+                                        
+                                        stage1WelcomeMessage.addEventListener('transitionend', function onTransitionEnd() {
+                                            currentStage = 'stage1';
+                                            console.log('Stage 1现在激活. currentStage:', currentStage);
+                                            
+                                            if (audioManager) {
+                                                audioManager.playSound('stage1WelcomeSFX');
+                                                
+                                                // 发送蓝光流动效果命令 (模式5)
+                                                if (esp32Connection && esp32Connection.isConnected()) {
+                                                    esp32Connection.sendCommand('L5');
+                                                    console.log('发送蓝光流动效果命令: L5');
+                                                    
+                                                    // 发送马达震动命令 (M = 单次震动)
+                                                    setTimeout(() => {
+                                                        esp32Connection.sendCommand('M');
+                                                        console.log('发送单次马达震动命令: M');
+                                                    }, 500);
+                                                } else {
+                                                    console.warn('ESP32未连接，无法发送蓝光流动和马达震动命令');
+                                                }
+                                                
+                                                setTimeout(() => {
+                                                    audioManager.playSound('stage1WelcomeVoiceZH');
+                                                    
+                                                    const stage1WelcomeVoice = audioManager.sounds['stage1WelcomeVoiceZH'].element;
+                                                    stage1WelcomeVoice.addEventListener('ended', function onVoiceEnded() {
+                                                        console.log('Stage 1欢迎语音结束，等待3秒后转换到Stage 2');
+                                                        
+                                                        setTimeout(() => {
+                                                            // 直接转换到Stage 2，不发送L0命令
+                                                            transitionToStage2();
+                                                        }, 3000);
+                                                        
+                                                        stage1WelcomeVoice.removeEventListener('ended', onVoiceEnded);
+                                                    }, { once: true });
+                                                }, 1000);
+                                            }
+                                            
+                                            stage1WelcomeMessage.removeEventListener('transitionend', onTransitionEnd);
+                                        }, { once: true });
+                                    }, 1000);
+                                }
+                            }
+                        }
+                        // 处理其他MPU数据
                     });
 
                     // Show modal by default
@@ -608,6 +694,14 @@
 
                     currentStage = 'stage2'; // Set the new current stage
 
+                    // 发送红色常亮命令 (模式1)
+                    if (esp32Connection && esp32Connection.isConnected()) {
+                        esp32Connection.sendCommand('L1');
+                        console.log('发送红色常亮命令: L1');
+                    } else {
+                        console.warn('ESP32未连接，无法发送红色常亮命令');
+                    }
+
                     const stage2Container = document.getElementById('stage2-container');
                     const stage2Title = document.getElementById('stage2-title');
 
@@ -730,6 +824,20 @@
                     const stage3_2Container = document.getElementById('stage3-2-container');
                     const knifeScanVideo = document.getElementById('knife-scan-video');
 
+                    // 发送红色流动光和持续马达震动命令
+                    if (esp32Connection && esp32Connection.isConnected()) {
+                        esp32Connection.sendCommand('L4'); // 红色流动光 (L4是红色流动)
+                        console.log('发送红色流动光命令: L4 (Stage 3-2)');
+                        
+                        // 添加200ms延迟再发送马达命令
+                        setTimeout(() => {
+                            esp32Connection.sendCommand('M4'); // 持续马达震动 (M4 = 持续震动)
+                            console.log('发送持续马达震动命令: M4 (Stage 3-2)');
+                        }, 200);
+                    } else {
+                        console.warn('ESP32未连接，无法发送红色流动光和马达震动命令 (Stage 3-2)');
+                    }
+
                     if (currentStage === 'stage2' && stage2Container) {
                         console.log('DEBUG: Hiding stage2Container and attempting to show stage3-2Container immediately.');
                         stage2Container.style.opacity = '0';
@@ -842,7 +950,21 @@
                     const rfidScanVideo = document.getElementById('rfid-scan-video');
                     const rfidScanMessage = document.getElementById('rfid-scan-message');
 
-                    // 1. Fade out Stage 2 elements
+                    // 1. 发送红色流动光和持续马达震动命令
+                    if (esp32Connection && esp32Connection.isConnected()) {
+                        esp32Connection.sendCommand('L4'); // 红色流动光 (L4是红色流动，L5是蓝色流动)
+                        console.log('发送红色流动光命令: L4');
+                        
+                        // 添加200ms延迟再发送马达命令
+                        setTimeout(() => {
+                            esp32Connection.sendCommand('M4'); // 持续马达震动 (M4 = 持续震动)
+                            console.log('发送持续马达震动命令: M4');
+                        },200);
+                    } else {
+                        console.warn('ESP32未连接，无法发送红色流动光和马达震动命令');
+                    }
+
+                    // 2. Fade out Stage 2 elements
                     if (stage2Container) {
                         stage2Container.style.opacity = '0';
                         if (window.floorplanRenderer && typeof window.floorplanRenderer.stopAnimation === 'function') {
@@ -913,6 +1035,21 @@
                     const stage4_1Container = document.getElementById('stage4-1-container');
                     const cupMovementVideo = document.getElementById('cup-movement-video');
                     const cupMovementMessage = document.getElementById('cup-movement-message');
+                    
+                    // 1. 停止马达震动并设置蓝光常亮
+                    if (esp32Connection && esp32Connection.isConnected()) {
+                        // 先发送LED命令
+                        esp32Connection.sendCommand('L2'); // 蓝光常亮
+                        console.log('设置蓝光常亮 (L2)');
+                        
+                        // 添加200ms延迟再发送停止马达命令
+                        setTimeout(() => {
+                            esp32Connection.sendCommand('M0');  // 停止马达震动
+                            console.log('发送停止马达震动命令 (M0)');
+                        }, 200);
+                    } else {
+                        console.warn('ESP32未连接，无法设置LED和马达');
+                    }
 
                     // 1. Fade out Stage 3-1 elements
                     if (stage3_1Container) {
@@ -988,6 +1125,20 @@
                 // Function to transition to Stage 4-2 (Knife Movement)
                 function transitionToStage4_2() {
                     console.log('Transitioning to Stage 4-2 for Knife Movement');
+                    
+                    // 发送蓝色常亮和停止马达震动命令
+                    if (esp32Connection && esp32Connection.isConnected()) {
+                        esp32Connection.sendCommand('L2'); // 蓝色常亮 (L2 = 蓝色常亮)
+                        console.log('发送蓝色常亮命令: L2 (Stage 4-2)');
+                        
+                        // 添加200ms延迟再发送停止马达命令
+                        setTimeout(() => {
+                            esp32Connection.sendCommand('M0'); // 停止马达震动 (M0 = 停止)
+                            console.log('发送停止马达震动命令: M0 (Stage 4-2)');
+                        }, 200);
+                    } else {
+                        console.warn('ESP32未连接，无法发送蓝色常亮和停止马达震动命令 (Stage 4-2)');
+                    }
                     // Determine the stage to hide based on where we are coming from.
                     // This needs to be dynamically set or passed if stage flow is complex.
                     // Assuming for now we might come from stage3-2 or a similar point before action sequences.
@@ -1071,6 +1222,20 @@
                 // Function to transition to Stage 4-2-1 (Knife Action Reproduction Prompt)
                 function transitionToStage4_2_1() {
                     console.log('Transitioning to Stage 4-2-1 for Knife Action Reproduction');
+                    
+                    // 发送蓝色流动光和单次马达震动命令
+                    if (esp32Connection && esp32Connection.isConnected()) {
+                        esp32Connection.sendCommand('L5'); // 蓝色流动光 (L5 = 蓝色流动)
+                        console.log('发送蓝色流动光命令: L5 (Stage 4-2-1)');
+                        
+                        // 添加100ms延迟再发送单次马达震动命令
+                        setTimeout(() => {
+                            esp32Connection.sendCommand('M'); // 单次马达震动 (M = 单次震动)
+                            console.log('发送单次马达震动命令: M (Stage 4-2-1)');
+                        }, 100);
+                    } else {
+                        console.warn('ESP32未连接，无法发送蓝色流动光和马达震动命令 (Stage 4-2-1)');
+                    }
                     const stage4_2Container = document.getElementById('stage4-2-container');
                     const stage4_2_1Container = document.getElementById('stage4-2-1-container');
                     const messageElement = document.getElementById('action-reproduction-message-stage4-2-1');
@@ -1118,6 +1283,20 @@
                     const stage3_3Container = document.getElementById('stage3-3-container');
                     const phoneScanVideo = document.getElementById('phone-scan-video');
                     const husbandImage = document.getElementById('husband-image');
+
+                    // 发送红色流动光和持续马达震动命令
+                    if (esp32Connection && esp32Connection.isConnected()) {
+                        esp32Connection.sendCommand('L4'); // 红色流动光 (L4是红色流动)
+                        console.log('发送红色流动光命令: L4 (Stage 3-3)');
+                        
+                        // 添加200ms延迟再发送马达命令
+                        setTimeout(() => {
+                            esp32Connection.sendCommand('M4'); // 持续马达震动 (M4 = 持续震动)
+                            console.log('发送持续马达震动命令: M4 (Stage 3-3)');
+                        }, 200);
+                    } else {
+                        console.warn('ESP32未连接，无法发送红色流动光和马达震动命令 (Stage 3-3)');
+                    }
 
                     if (rfidSocket && rfidSocket.connected) {
                         rfidSocket.emit('stop_rfid_scan');
@@ -1184,6 +1363,20 @@
                 // Function to transition to Stage 4-3 (Phone Movement)
 function transitionToStage4_3() {
     console.log('Transitioning to Stage 4-3 for Phone Movement');
+    
+    // 发送蓝色常亮和停止马达震动命令
+    if (esp32Connection && esp32Connection.isConnected()) {
+        esp32Connection.sendCommand('L2'); // 蓝色常亮 (L2 = 蓝色常亮)
+        console.log('发送蓝色常亮命令: L2 (Stage 4-3)');
+        
+        // 添加200ms延迟再发送停止马达命令
+        setTimeout(() => {
+            esp32Connection.sendCommand('M0'); // 停止马达震动 (M0 = 停止)
+            console.log('发送停止马达震动命令: M0 (Stage 4-3)');
+        }, 200);
+    } else {
+        console.warn('ESP32未连接，无法发送蓝色常亮和停止马达震动命令 (Stage 4-3)');
+    }
     const stage3_3Container = document.getElementById('stage3-3-container');
     const stage4_3Container = document.getElementById('stage4-3-container');
     const phoneMovementVideo = document.getElementById('phone-movement-video');
@@ -1250,6 +1443,20 @@ function transitionToStage4_3() {
 // Function to transition to Stage 4-3-1 (Phone Action Reproduction Prompt)
 function transitionToStage4_3_1() {
     console.log('Transitioning to Stage 4-3-1 for Phone Action Reproduction');
+    
+    // 发送蓝色流动光和单次马达震动命令
+    if (esp32Connection && esp32Connection.isConnected()) {
+        esp32Connection.sendCommand('L5'); // 蓝色流动光 (L5 = 蓝色流动)
+        console.log('发送蓝色流动光命令: L5 (Stage 4-3-1)');
+        
+        // 添加200ms延迟再发送单次马达震动命令
+        setTimeout(() => {
+            esp32Connection.sendCommand('M'); // 单次马达震动 (M = 单次震动)
+            console.log('发送单次马达震动命令: M (Stage 4-3-1)');
+        }, 200);
+    } else {
+        console.warn('ESP32未连接，无法发送蓝色流动光和马达震动命令 (Stage 4-3-1)');
+    }
     const stage4_3Container = document.getElementById('stage4-3-container');
     const stage4_3_1Container = document.getElementById('stage4-3-1-container');
 
@@ -1299,6 +1506,20 @@ function transitionToStage4_1_1() {
     console.log('Transitioning to Stage 4-1-1 for Action Reproduction');
     const stage4_1Container = document.getElementById('stage4-1-container');
     const stage4_1_1Container = document.getElementById('stage4-1-1-container');
+    
+    // 设置蓝光流动并触发单次马达震动
+    if (esp32Connection && esp32Connection.isConnected()) {
+        esp32Connection.sendCommand('L5'); // 蓝光流动
+        console.log('设置蓝光流动 (L5)');
+        
+        // 添加100ms延迟再发送马达命令
+        setTimeout(() => {
+            esp32Connection.sendCommand('M'); // 单次马达震动
+            console.log('发送单次马达震动命令: M');
+        }, 100);
+    } else {
+        console.warn('ESP32未连接，无法设置LED和马达');
+    }
 
     if (stage4_1Container) {
         stage4_1Container.style.opacity = '0';
@@ -1344,6 +1565,20 @@ function transitionToStage4_1_1() {
                 console.log('Transitioning to Stage 3-4 for Monitor Scan');
                 hideAllStages();
                 currentStage = 'stage3-4';
+
+                // 发送红色流动光和持续马达震动命令
+                if (esp32Connection && esp32Connection.isConnected()) {
+                    esp32Connection.sendCommand('L4'); // 红色流动光 (L4是红色流动)
+                    console.log('发送红色流动光命令: L4 (Stage 3-4)');
+                    
+                    // 添加200ms延迟再发送马达命令
+                    setTimeout(() => {
+                        esp32Connection.sendCommand('M4'); // 持续马达震动 (M4 = 持续震动)
+                        console.log('发送持续马达震动命令: M4 (Stage 3-4)');
+                    }, 200);
+                } else {
+                    console.warn('ESP32未连接，无法发送红色流动光和马达震动命令 (Stage 3-4)');
+                }
 
                 const monitorScanMessageEl = document.getElementById('monitor-scan-message');
                 if (monitorScanMessageEl) {
@@ -1394,6 +1629,20 @@ function transitionToStage4_1_1() {
                 console.log('Transitioning to Stage 4-4 for Monitor Movement');
                 hideAllStages();
                 currentStage = 'stage4-4';
+                
+                // 发送蓝色常亮和停止马达震动命令
+                if (esp32Connection && esp32Connection.isConnected()) {
+                    esp32Connection.sendCommand('L2'); // 蓝色常亮 (L2 = 蓝色常亮)
+                    console.log('发送蓝色常亮命令: L2 (Stage 4-4)');
+                    
+                    // 添加200ms延迟再发送停止马达命令
+                    setTimeout(() => {
+                        esp32Connection.sendCommand('M0'); // 停止马达震动 (M0 = 停止)
+                        console.log('发送停止马达震动命令: M0 (Stage 4-4)');
+                    }, 200);
+                } else {
+                    console.warn('ESP32未连接，无法发送蓝色常亮和停止马达震动命令 (Stage 4-4)');
+                }
                 const stage4_4Container = document.getElementById('stage4-4-container');
                 const monitorMovementVideo = document.getElementById('monitor-movement-video');
 
@@ -1444,6 +1693,20 @@ function transitionToStage4_1_1() {
                 console.log('Transitioning to Stage 4-4-1 for Monitor Action Prompt');
                 hideAllStages();
                 currentStage = 'stage4-4-1';
+                
+                // 发送蓝色流动光和单次马达震动命令
+                if (esp32Connection && esp32Connection.isConnected()) {
+                    esp32Connection.sendCommand('L5'); // 蓝色流动光 (L5 = 蓝色流动)
+                    console.log('发送蓝色流动光命令: L5 (Stage 4-4-1)');
+                    
+                    // 添加200ms延迟再发送单次马达震动命令
+                    setTimeout(() => {
+                        esp32Connection.sendCommand('M'); // 单次马达震动 (M = 单次震动)
+                        console.log('发送单次马达震动命令: M (Stage 4-4-1)');
+                    }, 200);
+                } else {
+                    console.warn('ESP32未连接，无法发送蓝色流动光和马达震动命令 (Stage 4-4-1)');
+                }
                 const stage4_4_1Container = document.getElementById('stage4-4-1-container');
 
                 if (stage4_4_1Container) {
