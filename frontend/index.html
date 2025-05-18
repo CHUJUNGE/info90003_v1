@@ -1274,18 +1274,38 @@
                             stage4_2_1Container.style.opacity = '1';
                             currentStage = 'stage4-2-1'; // Update current stage
 
-                            console.log('Showing Stage 4-2-1 message. Will transition to Stage 2 after 10 seconds.');
+                            // 触发 stageChange 事件，通知手势识别模块开始记录 'knife' 动作
+                            const stageChangeEvent = new CustomEvent('stageChange', {
+                                detail: { stage: 'stage4-2-1', actionType: 'knife' }
+                            });
+                            document.dispatchEvent(stageChangeEvent);
+                            console.log('已触发 stageChange 事件，通知手势识别模块开始记录 knife 动作');
+
+                            console.log('Showing Stage 4-2-1 message. Will gather gesture data and transition after 13 seconds.');
 
                             setTimeout(async () => {
                                 if (currentStage !== 'stage4-2-1') return;
+
+                                // 停止手势记录并获取匹配结果
+                                let matchResult = { matchPercentage: 0, level: '未匹配' };
+                                if (window.GestureRecognition && typeof window.GestureRecognition.stopRecording === 'function') {
+                                    matchResult = window.GestureRecognition.stopRecording() || matchResult;
+                                    console.log('手势匹配结果 (Knife):', matchResult);
+                                    // 你可以在这里根据 matchResult.level 或 matchResult.matchPercentage 执行特定操作
+                                    // 例如，如果匹配度低于某个阈值，则显示提示或不标记为完成等。
+                                    // 目前，无论匹配结果如何，都会继续标记为完成。
+                                } else {
+                                    console.warn('GestureRecognition.stopRecording 未找到，无法获取手势匹配结果');
+                                }
+
                                 console.log('Stage 4-2-1 (Knife) action reproduction time ended. Checking completion status.');
                                 const completionStatus = await markTagAsCompletedOnServer(TAG_NAMES.knife);
                                 if (completionStatus.all_completed) {
                                     transitionToStage5();
                                 } else {
-                                    transitionToStage2(true); // Pass true if Stage 2 expects it
+                                    transitionToStage2(true);
                                 }
-                            }, 10000); // 10-second delay
+                            }, 13000); // 13-second delay, aligned with stage4-1-1
                         });
                     } else {
                         console.error('Stage 4-2-1 elements (container or message) not found!');
@@ -1486,22 +1506,38 @@ function transitionToStage4_3_1() {
     }
 
     if (stage4_3_1Container) {
-        stage4_3_1Container.style.display = 'flex';
-        currentStage = 'stage4-3-1';
+        stage4_3_1Container.style.display = 'flex'; 
         
         requestAnimationFrame(() => {
             stage4_3_1Container.style.opacity = '1';
-            console.log('Showing Stage 4-3-1 message. Will transition to Stage 2 after 10 seconds.');
+            currentStage = 'stage4-3-1'; 
             
+            // 触发 stageChange 事件，通知手势识别模块开始记录
+            const stageChangeEvent = new CustomEvent('stageChange', { 
+                detail: { stage: 'stage4-3-1', actionType: 'phone' } 
+            });
+            document.dispatchEvent(stageChangeEvent);
+            console.log('已触发 stageChange 事件，通知手势识别模块开始记录 phone 动作');
+
             if (currentEPC) { // Marking phone as scanned
                 scannedTags.add(currentEPC);
                 console.log(`Tag ${currentEPC} (phone) has completed its flow and is now permanently marked as scanned.`);
                 console.log('Currently scanned tags:', Array.from(scannedTags));
                 currentEPC = null; 
             }
-
+            
             setTimeout(async () => {
                 if (currentStage !== 'stage4-3-1') return;
+                
+                // 停止手势记录并获取匹配结果
+                let matchResult = { matchPercentage: 0, level: '未匹配' };
+                if (window.GestureRecognition) {
+                    matchResult = window.GestureRecognition.stopRecording() || matchResult;
+                    console.log('手势匹配结果 (phone):', matchResult);
+                } else {
+                    console.warn('GestureRecognition 未找到，无法获取手势匹配结果');
+                }
+                
                 console.log('Stage 4-3-1 (Phone) action reproduction time ended. Checking completion status.');
                 const completionStatus = await markTagAsCompletedOnServer(TAG_NAMES.phone);
                 if (completionStatus.all_completed) {
@@ -1509,7 +1545,7 @@ function transitionToStage4_3_1() {
                 } else {
                     transitionToStage2(true);
                 }
-            }, 10000); 
+            }, 13000); // 延长到13秒，与stage4-1-1和stage4-2-1一致
         });
     } else {
         console.error('Stage 4-3-1 container not found!');
@@ -1727,7 +1763,7 @@ function transitionToStage4_1_1() {
             function transitionToStage4_4_1() {
                 console.log('Transitioning to Stage 4-4-1 for Monitor Action Prompt');
                 hideAllStages();
-                currentStage = 'stage4-4-1';
+                // currentStage will be set inside requestAnimationFrame
                 
                 // 发送蓝色流动光和单次马达震动命令
                 if (esp32Connection && esp32Connection.isConnected()) {
@@ -1748,13 +1784,33 @@ function transitionToStage4_1_1() {
                     stage4_4_1Container.style.display = 'flex';
                     requestAnimationFrame(() => {
                         stage4_4_1Container.style.opacity = '1';
+                        currentStage = 'stage4-4-1'; // Set currentStage here
+
+                        // 触发 stageChange 事件，通知手势识别模块开始记录
+                        const stageChangeEvent = new CustomEvent('stageChange', { 
+                            detail: { stage: 'stage4-4-1', actionType: 'monitor' } 
+                        });
+                        document.dispatchEvent(stageChangeEvent);
+                        console.log('已触发 stageChange 事件，通知手势识别模块开始记录 monitor 动作');
+
                         if (currentEPC) {
                            scannedTags.add(currentEPC);
                            console.log(`Tag ${currentEPC} (monitor) processed and recorded.`);
                            currentEPC = null; 
                         }
+                        
                         setTimeout(async () => {
                             if (currentStage !== 'stage4-4-1') return;
+
+                            // 停止手势记录并获取匹配结果
+                            let matchResult = { matchPercentage: 0, level: '未匹配' };
+                            if (window.GestureRecognition) {
+                                matchResult = window.GestureRecognition.stopRecording() || matchResult;
+                                console.log('手势匹配结果 (monitor):', matchResult);
+                            } else {
+                                console.warn('GestureRecognition 未找到，无法获取手势匹配结果');
+                            }
+                            
                             console.log('Stage 4-4-1 (Monitor) action reproduction time ended. Checking completion status.');
                             const completionStatus = await markTagAsCompletedOnServer(TAG_NAMES.monitor);
                             if (completionStatus.all_completed) {
@@ -1762,10 +1818,11 @@ function transitionToStage4_1_1() {
                             } else {
                                 transitionToStage2(true);
                             }
-                        }, 3000); // 3-second delay
+                        }, 13000); // 13-second delay, consistent with other stages
                     });
                 } else {
                     console.error('Stage 4-4-1 elements not found!');
+                    transitionToStage2(true); // Add error transition
                 }
             }
         }); // Closes DOMContentLoaded
