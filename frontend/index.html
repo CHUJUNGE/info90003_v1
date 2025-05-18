@@ -159,6 +159,7 @@
         <!-- Scripts -->
         <script type="module" src="js/globe.js"></script>
         <script src="js/esp32.js"></script> <!-- Ensure this is included -->
+        <script src="js/gesture.js"></script> <!-- Include Gesture Recognition -->
         <script src="js/AudioManager.js"></script> <!-- Include AudioManager -->
         <script src="js/3d-floorplan.js"></script> <!-- Include 3D Floorplan -->
         <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script> <!-- Socket.IO Client for RFID -->
@@ -312,6 +313,8 @@
                     esp32Connection.onConnect(function() {
                         console.log('ESP32 BLE已连接');
                         updateUI('connected');
+                        window.esp32GlobalBLEConnection = esp32Connection; // Expose to global
+                        console.log('ESP32 connection instance exposed to window.esp32GlobalBLEConnection');
                         // 如果当前是stage0，设置LED为蓝色常亮
                         if (currentStage === 'stage0') {
                             esp32Connection.setLedMode(2); // 2对应蓝色常亮
@@ -323,11 +326,25 @@
                     esp32Connection.onDisconnect(function(reason) {
                         console.log('ESP32 BLE已断开连接', reason ? '原因: ' + reason : '');
                         updateUI('disconnected');
+                        if (window.esp32GlobalBLEConnection) {
+                            window.esp32GlobalBLEConnection = null;
+                            console.log('Global ESP32 connection reference (window.esp32GlobalBLEConnection) cleared.');
+                        }
                     });
 
                     // 设置数据接收回调 - 使用正确的方法注册回调
                     esp32Connection.onData(function(data) {
                         console.log('从ESP32接收到数据:', data);
+                        
+                        // 将MPU数据传递给手势识别模块
+                        if (data.type === 'mpu_string' && typeof data.payload === 'string' && data.payload.includes('ax:')) {
+                            // 如果全局处理函数存在，则调用它
+                            if (window.processMPUDataFromESP32) {
+                                window.processMPUDataFromESP32(data);
+                            } else {
+                                console.warn('全局MPU数据处理函数不存在，无法处理MPU数据');
+                            }
+                        }
                         
                         // 处理KEY1命令，模拟键盘按下"1"键
                         if (data.type === 'mpu_string' && data.payload === 'KEY1') {
@@ -1535,6 +1552,13 @@ function transitionToStage4_1_1() {
         requestAnimationFrame(() => {
             stage4_1_1Container.style.opacity = '1';
             currentStage = 'stage4-1-1'; 
+            
+            // 触发 stageChange 事件，通知手势识别模块开始记录
+            const stageChangeEvent = new CustomEvent('stageChange', { 
+                detail: { stage: 'stage4-1-1', actionType: 'cup' } 
+            });
+            document.dispatchEvent(stageChangeEvent);
+            console.log('已触发 stageChange 事件，通知手势识别模块开始记录 cup 动作');
 
             if (currentEPC) {
                 scannedTags.add(currentEPC);
@@ -1543,8 +1567,19 @@ function transitionToStage4_1_1() {
                 currentEPC = null; 
             }
             
+            // 延长等待时间，给用户足够的时间完成动作
             setTimeout(async () => {
                 if (currentStage !== 'stage4-1-1') return;
+                
+                // 停止手势记录并获取匹配结果
+                let matchResult = { matchPercentage: 0, level: '未匹配' };
+                if (window.GestureRecognition) {
+                    matchResult = window.GestureRecognition.stopRecording() || matchResult;
+                    console.log('手势匹配结果:', matchResult);
+                } else {
+                    console.warn('GestureRecognition 未找到，无法获取手势匹配结果');
+                }
+                
                 console.log('Stage 4-1-1 (Cup) action reproduction time ended. Checking completion status.');
                 const completionStatus = await markTagAsCompletedOnServer(TAG_NAMES.cup);
                 if (completionStatus.all_completed) {
@@ -1552,11 +1587,11 @@ function transitionToStage4_1_1() {
                 } else {
                     transitionToStage2(true);
                 }
-            }, 3000); 
+            }, 13000); // 延长到13秒，给用户足够的时间完成动作
         });
     } else {
-        console.error('Stage 4-1-1 container not found!');
-        transitionToStage2(true); 
+        console.error('Stage 4-1-1 elements not found!');
+        transitionToStage2(true);
     }
 }
 
