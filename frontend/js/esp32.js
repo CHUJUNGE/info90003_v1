@@ -1,6 +1,6 @@
 // D:\info90003_v1\frontend\js\esp32.js
 // New content for Web Bluetooth API
-class ESP32BLEConnection {
+export class ESP32BLEConnection {
     constructor() {
         this.device = null;
         this.server = null;

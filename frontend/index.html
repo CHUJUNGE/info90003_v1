@@ -7,7 +7,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Rajdhani:wght@500;700&family=Audiowide&family=Exo+2:wght@400;700&family=Syncopate:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script> <!-- Three.js CDN -->
-    <script src="js/esp32.js"></script> <!-- ESP32 BLE Connection -->
+    <script type="module" src="js/main.js"></script> <!-- Main application logic -->
 </head>
 <body>
     <div class="container">
@@ -26,15 +26,18 @@
         <div id="esp32-connect-modal" class="modal">
             <div class="modal-content">
                 <span class="close-button" id="close-modal-btn">&times;</span>
-                <h2>Connect to ESP32</h2>
-                <button id="connect-esp32-btn">Connect</button>
-                <p id="esp32-modal-status">Status: Idle</p>
+                <h2>Connect to Devices</h2>
+                <button id="connect-main-esp32-btn" style="margin-bottom: 10px;">Connect Main ESP32</button>
+                <button id="connect-strip-light-esp32-btn">Connect Strip Light ESP32</button>
+                <p id="main-esp32-modal-status" style="margin-top: 15px;">Main ESP32: Idle</p>
+                <p id="strip-light-esp32-modal-status">Strip Light ESP32: Idle</p>
             </div>
         </div>
 
         <!-- ESP32 Connection Status Indicator (Bottom Left) -->
-        <div id="esp32-status-indicator">
-            <span>ESP32: </span><span id="esp32-status-text">Disconnected</span>
+        <div id="esp32-status-indicator" style="display: flex; flex-direction: column;">
+            <div><span>Main ESP32: </span><span id="main-esp32-status-text">Disconnected</span></div>
+            <div><span>Strip Light ESP32: </span><span id="strip-light-esp32-status-text">Disconnected</span></div>
         </div>
 
         <!-- Stage Elements Container -->
