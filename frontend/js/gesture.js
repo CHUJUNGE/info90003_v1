@@ -495,7 +495,7 @@ function finishRecording() {
         console.warn('没有收集到有效的手势数据');
         matchResult = { matchPercentage: 50, level: '数据不足' };
         // 显示结果
-        showMatchResultInStage();
+        showMatchResultInStage(matchResult);
         return;
     }
     
@@ -518,7 +518,7 @@ function finishRecording() {
     }
     
     // 显示匹配结果
-    showMatchResultInStage();
+    showMatchResultInStage(matchResult);
     
     // 设置 LED 为绿色常亮并震动马达
     try {
@@ -562,7 +562,9 @@ function finishRecording() {
 }
 
 // 在stage4-x-1阶段显示匹配结果
-async function showMatchResultInStage() {
+async function showMatchResultInStage(matchResult) {
+    console.log(`showMatchResultInStage called. Current window.currentStage: ${window.currentStage}. Match Result:`, matchResult);
+
     console.log('开始显示手势匹配结果，当前阶段:', window.currentStage);
     console.log('匹配结果:', matchResult);
     
@@ -674,6 +676,79 @@ async function showMatchResultInStage() {
     }
     
     console.log('手势匹配结果显示完成');
+    console.log('即将尝试播放音效。window.audioManager 状态:', window.audioManager);
+    if (window.audioManager) {
+        window.audioManager.playSound('showMatchScoreSound');
+        console.log('已调用 playSound("showMatchScoreSound")');
+    } else {
+        console.error('window.audioManager 未定义，无法播放音效！');
+    }
+
+    // Logic for video feedback in action reproduction stages (e.g., stage4-1-1 for cup, stage4-2-1 for knife, stage4-3-1 for phone, stage4-4-1 for camera/monitor)
+    if ((window.currentStage === 'stage4-1-1' || window.currentStage === 'stage4-2-1' || window.currentStage === 'stage4-3-1' || window.currentStage === 'stage4-4-1') && matchResult) {
+        let videoSrc = '';
+        const highMatchLevels = ['完美匹配', '非常接近']; // "基本接近" removed from high tier
+
+        if (window.currentStage === 'stage4-1-1') {
+            if (matchResult.level && highMatchLevels.includes(matchResult.level)) {
+                videoSrc = 'assets/videos/cup_high.mp4';
+            } else {
+                videoSrc = 'assets/videos/cup_low.mp4';
+            }
+            console.log(`Stage 4-1-1 (Cup): Match level '${matchResult.level}', determined video: ${videoSrc}`);
+        } else if (window.currentStage === 'stage4-2-1') {
+            if (matchResult.level && highMatchLevels.includes(matchResult.level)) {
+                videoSrc = 'assets/videos/knife_high.mp4';
+            } else {
+                videoSrc = 'assets/videos/knife_low.mp4';
+            }
+            console.log(`Stage 4-2-1 (Knife): Match level '${matchResult.level}', determined video: ${videoSrc}`);
+        } else if (window.currentStage === 'stage4-3-1') {
+            if (matchResult.level && highMatchLevels.includes(matchResult.level)) {
+                videoSrc = 'assets/videos/phone_high.mp4';
+            } else {
+                videoSrc = 'assets/videos/phone_low.mp4';
+            }
+            console.log(`Stage 4-3-1 (Phone): Match level '${matchResult.level}', determined video: ${videoSrc}`);
+        } else if (window.currentStage === 'stage4-4-1') {
+            if (matchResult.level && highMatchLevels.includes(matchResult.level)) {
+                videoSrc = 'assets/videos/camera_high.mp4';
+            } else {
+                videoSrc = 'assets/videos/camera_low.mp4';
+            }
+            console.log(`Stage 4-4-1 (Camera/Monitor): Match level '${matchResult.level}', determined video: ${videoSrc}`);
+        }
+
+        // Call the generalized function in index.html to handle video playback and transition
+        if (typeof window.playFeedbackVideoAndReturnToStage === 'function') {
+            // Add a delay before playing the video to allow user to see the match result
+            setTimeout(() => {
+                if (window.playFeedbackVideoAndReturnToStage) {
+                    // Pass videoSrc, targetReturnStage ('stage2'), and currentActionStageId (window.currentStage)
+                    window.playFeedbackVideoAndReturnToStage(videoSrc, 'stage2', window.currentStage);
+                } else {
+                    console.error('playFeedbackVideoAndReturnToStage function not found on window object during timeout execution.');
+                    // Fallback if function is somehow still not available
+                    console.log("Attempting fallback: Dispatching 'requestStageTransition' event directly.");
+                    const fallbackDetail = { stage: 'stage2' };
+                    if (window.currentStage.startsWith('stage4-')) { // Assuming stage 2 returns need 'arg: true'
+                        fallbackDetail.arg = true;
+                    }
+                    document.dispatchEvent(new CustomEvent('requestStageTransition', { detail: fallbackDetail }));
+                }
+            }, 3000); // 3-second delay
+        } else {
+            console.error('Global video playback function (playFeedbackVideoAndReturnToStage) not found. Cannot play feedback video.');
+            // If the global function isn't there, at least try to transition back to stage2 after a delay
+            setTimeout(() => {
+                const fallbackDetail = { stage: 'stage2' };
+                if (window.currentStage.startsWith('stage4-')) { // Assuming stage 2 returns need 'arg: true'
+                     fallbackDetail.arg = true;
+                }
+                document.dispatchEvent(new CustomEvent('requestStageTransition', { detail: fallbackDetail }));
+            }, 3000);
+        }
+    }
 }
 
 // 初始化手势识别UI

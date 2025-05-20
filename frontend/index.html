@@ -45,7 +45,7 @@
             <!-- Stage 5: Loading/Conclusion Screen -->
             <div id="stage5-loading-container" class="stage-message" style="display: none; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
                 <div class="loader"></div>
-                <p id="stage5-message" style="margin-top: 20px; font-size: 1.5em; color: #fff;">正在分析所有证物...</p>
+                <p id="stage5-message" style="margin-top: 20px; font-size: 0.5em; color: #fff;">All evidence scanned and being analyzed...</p>
             </div>
 
             <!-- Stage 0 elements (like the globe canvas) are already here or dynamically added -->
@@ -212,17 +212,23 @@
             document.addEventListener('DOMContentLoaded', () => {
                 const modal = document.getElementById('esp32-connect-modal');
                 const closeModalBtn = document.getElementById('close-modal-btn');
-                const connectEsp32Btn = document.getElementById('connect-esp32-btn');
+                const connectMainEsp32Btn = document.getElementById('connect-main-esp32-btn');
+                const connectStripLightEsp32Btn = document.getElementById('connect-strip-light-esp32-btn');
                 const esp32IpInput = document.getElementById('esp32-ip');
-                const modalStatus = document.getElementById('esp32-modal-status');
-                const statusIndicator = document.getElementById('esp32-status-indicator');
-                const statusText = document.getElementById('esp32-status-text');
+                const mainEsp32ModalStatus = document.getElementById('main-esp32-modal-status');
+                const stripLightEsp32ModalStatus = document.getElementById('strip-light-esp32-modal-status');
+                const statusIndicator = document.getElementById('esp32-status-indicator'); // This was correct
+                const mainEsp32StatusText = document.getElementById('main-esp32-status-text');
+                const stripLightEsp32StatusText = document.getElementById('strip-light-esp32-status-text');
+                // Assuming connectEsp32Btn (line 214) should be connectMainEsp32Btn for clarity if 'connect-esp32-btn' is not the main one.
+                // For now, we leave connectEsp32Btn as is, assuming it's used for the main connection logic elsewhere.
 
                 let esp32Connection = null;
             let rfidSocket = null; // Socket.IO connection for RFID backend 
 
                 // Initialize AudioManager - assign to the higher-scoped variable
                 audioManager = new AudioManager(); 
+                window.audioManager = audioManager; // Make it globally accessible
                 audioManager.loadSound('stage0Music', 'assets/audio/stage0.wav', true);
                 // Preload Stage 1 sounds
                 audioManager.loadSound('stage1WelcomeSFX', 'assets/audio/stage1_welcome_sfx.wav', false);
@@ -238,6 +244,7 @@
                 audioManager.loadSound('phoneContactAudio', 'assets/audio/phone_contact.mp3', false);
                 audioManager.loadSound('monitorScanVoice', 'assets/audio/camera_scan.mp3', false);
                 audioManager.loadSound('monitorSceneVoice', 'assets/audio/surveillance_camera.mp3', false);
+                audioManager.loadSound('showMatchScoreSound', 'assets/audio/show_match_score.wav', false); // 加载手势匹配结果音效
 
                 // Attempt to play Stage 0 music. If audio not unlocked, it will be queued and play on first interaction.
                 if (audioManager) { 
@@ -264,50 +271,122 @@
                 // 检查ESP32BLEConnection类是否可用（来自js/esp32.js）
                 if (typeof ESP32BLEConnection === 'undefined') {
                     console.error('ESP32BLEConnection类未加载。请检查脚本引用。');
-                    if (modalStatus) modalStatus.textContent = '错误：BLE脚本未加载。';
+                    if (mainEsp32ModalStatus) mainEsp32ModalStatus.textContent = '错误：BLE脚本未加载。';
+                    if (stripLightEsp32ModalStatus) stripLightEsp32ModalStatus.textContent = '错误：BLE脚本未加载。';
                     // 如果类未加载，禁用连接按钮
-                    if (connectEsp32Btn) connectEsp32Btn.disabled = true;
+                    if (connectMainEsp32Btn) connectMainEsp32Btn.disabled = true;
+                    if (connectStripLightEsp32Btn) connectStripLightEsp32Btn.disabled = true;
                 } else {
-                    // 创建ESP32BLE连接对象
-                    esp32Connection = new ESP32BLEConnection();
+                    // 创建ESP32BLE连接对象 (This will be for the Main ESP32 by default)
+                    // TODO: Instantiate separate connections for main and strip light ESP32s
+                    esp32Connection = new ESP32BLEConnection(); // Assumed to be for Main ESP32
+                    // let stripLightEsp32Connection = new ESP32BLEConnection(STRIP_LIGHT_ESP32_CONFIG); // Example for later
 
-                    // 使用原有的updateUI函数，但修改变量引用
-                    function updateUI(state, message = '') {
+                    function updateUI(state, message = '', deviceContext = '主ESP32') { // Default context to Main ESP32
                         statusIndicator.classList.add('visible');
                         switch (state) {
                             case 'connecting':
-                                modalStatus.textContent = `状态：正在连接... ${message}`;
-                                statusText.textContent = '正在连接...';
-                                statusText.className = 'connecting';
-                                connectEsp32Btn.disabled = true;
-                                connectEsp32Btn.textContent = '正在连接...';
+                                if (deviceContext === '主ESP32' && mainEsp32ModalStatus) mainEsp32ModalStatus.textContent = `主ESP32：正在连接... ${message}`;
+                                else if (deviceContext === '灯带ESP32' && stripLightEsp32ModalStatus) stripLightEsp32ModalStatus.textContent = `灯带ESP32：正在连接... ${message}`;
+                                
+                                if (deviceContext === '主ESP32' && mainEsp32StatusText) {
+                                    mainEsp32StatusText.textContent = '正在连接...';
+                                    mainEsp32StatusText.className = 'connecting';
+                                }
+                                else if (deviceContext === '灯带ESP32' && stripLightEsp32StatusText) {
+                                    stripLightEsp32StatusText.textContent = '正在连接...';
+                                    stripLightEsp32StatusText.className = 'connecting';
+                                }
+
+                                if (deviceContext === '主ESP32' && connectMainEsp32Btn) {
+                                    connectMainEsp32Btn.disabled = true;
+                                    connectMainEsp32Btn.textContent = '正在连接...';
+                                }
+                                else if (deviceContext === '灯带ESP32' && connectStripLightEsp32Btn) {
+                                    connectStripLightEsp32Btn.disabled = true;
+                                    connectStripLightEsp32Btn.textContent = '正在连接...';
+                                }
                                 break;
                             case 'connected':
-                                modalStatus.textContent = `状态：已连接！`;
-                                statusText.textContent = '已连接';
-                                statusText.className = 'connected';
-                                connectEsp32Btn.disabled = false;
-                                connectEsp32Btn.textContent = '断开连接'; 
-                                modal.style.display = 'none'; 
+                                if (deviceContext === '主ESP32' && mainEsp32ModalStatus) mainEsp32ModalStatus.textContent = `主ESP32：已连接！`;
+                                else if (deviceContext === '灯带ESP32' && stripLightEsp32ModalStatus) stripLightEsp32ModalStatus.textContent = `灯带ESP32：已连接！`;
+
+                                if (deviceContext === '主ESP32' && mainEsp32StatusText) {
+                                    mainEsp32StatusText.textContent = '已连接';
+                                    mainEsp32StatusText.className = 'connected';
+                                }
+                                else if (deviceContext === '灯带ESP32' && stripLightEsp32StatusText) {
+                                    stripLightEsp32StatusText.textContent = '已连接';
+                                    stripLightEsp32StatusText.className = 'connected';
+                                }
+
+                                if (deviceContext === '主ESP32' && connectMainEsp32Btn) {
+                                    connectMainEsp32Btn.disabled = false;
+                                    connectMainEsp32Btn.textContent = '断开连接'; 
+                                }
+                                else if (deviceContext === '灯带ESP32' && connectStripLightEsp32Btn) {
+                                    connectStripLightEsp32Btn.disabled = false;
+                                    connectStripLightEsp32Btn.textContent = '断开连接'; 
+                                }
+                                // Hide modal if BOTH are connected, or if the primary one connects?
+                                // For now, hide modal if the device that triggered 'connected' is the main one.
+                                if (deviceContext === '主ESP32') modal.style.display = 'none'; 
                                 break;
                             case 'disconnected':
-                                modalStatus.textContent = `状态：已断开连接。${message}`;
-                                statusText.textContent = '已断开连接';
-                                statusText.className = 'disconnected';
-                                connectEsp32Btn.disabled = false;
-                                connectEsp32Btn.textContent = '连接';
+                                if (deviceContext === '主ESP32' && mainEsp32ModalStatus) mainEsp32ModalStatus.textContent = `主ESP32：已断开。${message}`;
+                                else if (deviceContext === '灯带ESP32' && stripLightEsp32ModalStatus) stripLightEsp32ModalStatus.textContent = `灯带ESP32：已断开。${message}`;
+
+                                if (deviceContext === '主ESP32' && mainEsp32StatusText) {
+                                    mainEsp32StatusText.textContent = '已断开连接';
+                                    mainEsp32StatusText.className = 'disconnected';
+                                }
+                                else if (deviceContext === '灯带ESP32' && stripLightEsp32StatusText) {
+                                    stripLightEsp32StatusText.textContent = '已断开连接';
+                                    stripLightEsp32StatusText.className = 'disconnected';
+                                }
+
+                                if (deviceContext === '主ESP32' && connectMainEsp32Btn) {
+                                    connectMainEsp32Btn.disabled = false;
+                                    connectMainEsp32Btn.textContent = '连接';
+                                }
+                                else if (deviceContext === '灯带ESP32' && connectStripLightEsp32Btn) {
+                                    connectStripLightEsp32Btn.disabled = false;
+                                    connectStripLightEsp32Btn.textContent = '连接';
+                                }
                                 break;
                             case 'error':
-                                modalStatus.textContent = `状态：错误。${message}`;
-                                statusText.textContent = '错误';
-                                statusText.className = 'disconnected'; 
-                                connectEsp32Btn.disabled = false;
-                                connectEsp32Btn.textContent = '连接';
+                                if (deviceContext === '主ESP32' && mainEsp32ModalStatus) mainEsp32ModalStatus.textContent = `主ESP32：错误。${message}`;
+                                else if (deviceContext === '灯带ESP32' && stripLightEsp32ModalStatus) stripLightEsp32ModalStatus.textContent = `灯带ESP32：错误。${message}`;
+                                
+                                if (deviceContext === '主ESP32' && mainEsp32StatusText) {
+                                    mainEsp32StatusText.textContent = '错误';
+                                    mainEsp32StatusText.className = 'disconnected'; 
+                                }
+                                else if (deviceContext === '灯带ESP32' && stripLightEsp32StatusText) {
+                                    stripLightEsp32StatusText.textContent = '错误';
+                                    stripLightEsp32StatusText.className = 'disconnected'; 
+                                }
+
+                                if (deviceContext === '主ESP32' && connectMainEsp32Btn) {
+                                    connectMainEsp32Btn.disabled = false;
+                                    connectMainEsp32Btn.textContent = '连接';
+                                }
+                                else if (deviceContext === '灯带ESP32' && connectStripLightEsp32Btn) {
+                                    connectStripLightEsp32Btn.disabled = false;
+                                    connectStripLightEsp32Btn.textContent = '连接';
+                                }
                                 break;
                             default: 
-                                modalStatus.textContent = '状态：空闲。按空格键切换。';
-                                statusText.textContent = '已断开连接';
-                                statusText.className = 'disconnected';
+                                if (mainEsp32ModalStatus) mainEsp32ModalStatus.textContent = '主ESP32: 空闲';
+                                if (stripLightEsp32ModalStatus) stripLightEsp32ModalStatus.textContent = '灯带ESP32: 空闲';
+                                if (mainEsp32StatusText) {
+                                    mainEsp32StatusText.textContent = '已断开连接';
+                                    mainEsp32StatusText.className = 'disconnected';
+                                }
+                                if (stripLightEsp32StatusText) {
+                                    stripLightEsp32StatusText.textContent = '已断开连接';
+                                    stripLightEsp32StatusText.className = 'disconnected';
+                                }
                                 statusIndicator.classList.remove('visible'); 
                         }
                     }
@@ -462,8 +541,8 @@
                             // Update status in modal if shown
                             if (esp32Connection && esp32Connection.isConnected()) {
                                 updateUI('connected');
-                            } else if (connectEsp32Btn.disabled) { 
-                                updateUI('connecting', modalStatus.textContent.replace('状态：', ''));
+                            } else if (connectMainEsp32Btn && connectMainEsp32Btn.disabled) { 
+                                updateUI('connecting', mainEsp32ModalStatus.textContent.replace('状态：', '')); // Use mainEsp32ModalStatus here
                             } else {
                                 updateUI('disconnected', modalStatus.textContent.replace('状态：', ''));
                             }
@@ -472,25 +551,45 @@
 
                     // 替换原有的点击事件处理程序
                     // 移除之前的事件监听器
-                    const newConnectBtn = connectEsp32Btn.cloneNode(true);
-                    connectEsp32Btn.parentNode.replaceChild(newConnectBtn, connectEsp32Btn);
-                    const connectEsp32BtnNew = document.getElementById('connect-esp32-btn');
-                    
-                    connectEsp32BtnNew.addEventListener('click', async () => {
-                        if (esp32Connection.isConnected()) {
-                            esp32Connection.disconnect();
-                        } else {
-                            try {
-                                updateUI('connecting');
-                                console.log('正在尝试通过BLE连接到ESP32...');
-                                await esp32Connection.connect();
-                                // onConnect回调将处理状态更新
-                            } catch (error) {
-                                console.error('BLE连接失败:', error);
-                                updateUI('error', error.message || '连接失败');
+                    // Ensure connectMainEsp32Btn is valid before cloning and adding listener
+                    if (connectMainEsp32Btn) {
+                        // Clone to remove previous listeners and update the reference
+                        let newMainConnectBtn = connectMainEsp32Btn.cloneNode(true);
+                        if (connectMainEsp32Btn.parentNode) {
+                            connectMainEsp32Btn.parentNode.replaceChild(newMainConnectBtn, connectMainEsp32Btn);
+                            // It's crucial that connectMainEsp32Btn is 'let' if we reassign it here,
+                            // or we use newMainConnectBtn directly for adding the listener.
+                            // Since connectMainEsp32Btn was declared 'const' earlier, we must use the new var or re-fetch by ID.
+                            // The re-fetch 'reselectedConnectMainEsp32Btn' is safer.
+                            const reselectedConnectMainEsp32Btn = document.getElementById('connect-main-esp32-btn'); // Re-fetch the *new* button
+
+                            if (reselectedConnectMainEsp32Btn) {
+                                reselectedConnectMainEsp32Btn.addEventListener('click', async () => {
+                                    // Assuming esp32Connection refers to the main ESP32 connection instance
+                                    if (esp32Connection.isConnected()) {
+                                        esp32Connection.disconnect();
+                                    } else {
+                                        try {
+                                            updateUI('connecting', '主ESP32'); // Indicate context if updateUI supports it
+                                            console.log('正在尝试通过BLE连接到主ESP32...');
+                                            await esp32Connection.connect();
+                                            // onConnect callback will handle UI update to 'connected'
+                                        } catch (error) {
+                                            console.error('主ESP32 BLE连接失败:', error);
+                                            updateUI('error', error.message || '连接失败', '主ESP32');
+                                        }
+                                    }
+                                });
+                            } else {
+                                console.error("'connect-main-esp32-btn' not found after replacing. Cannot attach listener.");
                             }
+                        } else {
+                            console.error('connectMainEsp32Btn has no parentNode.');
                         }
-                    });
+                    } else {
+                        console.error('connectMainEsp32Btn element not found. Cannot set up click listener.');
+                    }
+                    // Make sure to close all outer blocks properly if this is the end of DOMContentLoaded or a script tag.
                 }
 
                 // Listen for key presses for stage transitions
@@ -787,23 +886,110 @@
                 // The original function ended at line 456. The target should be the function definition itself.
 
 
-                // Function to transition to Stage 5 (Loading/Conclusion)
+                function hideAllStages() {
+                console.log('Hiding all stages');
+                const selectors = [
+                    '.stage-container',
+                    '.stage-message',
+                    '.scene-container' // Globe container
+                ];
+                document.querySelectorAll(selectors.join(', ')).forEach(el => {
+                    el.style.display = 'none';
+                    el.style.opacity = '0'; // Also reset opacity for consistency
+                });
+
+                // Additionally, explicitly hide known top-level stage containers by ID pattern if necessary
+                // This can be more robust if some stages don't use the general classes
+                const allElements = document.getElementsByTagName('div');
+                for (let i = 0; i < allElements.length; i++) {
+                    if (allElements[i].id.startsWith('stage') && allElements[i].id.endsWith('-container')) {
+                        // Check if it's not a sub-container that should remain managed by its parent stage transition
+                        // For example, 'stage3-1-container' should be hidden if we are globally hiding stages.
+                        // However, this simple query might be too broad. For now, the class-based approach is safer.
+                        // Add more specific IDs if needed, e.g.:
+                        // document.getElementById('stage1-welcome-message').style.display = 'none';
+                        // document.getElementById('stage2-container').style.display = 'none';
+                        // ... and so on for all top-level stage containers
+                    }
+                }
+            }
+
+            // Function to transition to Stage 5 (Loading/Conclusion)
             function transitionToStage5() {
                 console.log('Transitioning to Stage 5: All items scanned, loading conclusion.');
                 hideAllStages();
                 currentStage = 'stage5';
                 const stage5Container = document.getElementById('stage5-loading-container');
                 const stage5Message = document.getElementById('stage5-message');
+                
                 if (stage5Container) {
                     stage5Container.style.display = 'flex';
                     requestAnimationFrame(() => {
                         stage5Container.style.opacity = '1';
-                        if (stage5Message) stage5Message.textContent = '正在分析所有证物...'; // Or any appropriate message
-                        // You might want to play a specific sound or start an animation here
-                        // For now, it just shows the loading spinner and message.
-                        // After a delay, you could transition to a final results screen or loop back.
-                        // Example: setTimeout(() => { console.log('Stage 5 finished.'); transitionToStage0(); }, 10000); 
+                        if (stage5Message) stage5Message.textContent = 'All evidence scanned and being analyzed...';
+                        
+                        // 1. 首先播放 loading.mp3
+                        const loadingAudio = new Audio('assets/audio/loading.mp3');
+                        
+                        // 2. 当 loading.mp3 播放完毕后
+                        loadingAudio.addEventListener('ended', function onLoadingAudioEnd() {
+                            console.log('Loading audio finished. Playing reconstruction complete message and showing result image.');
+                            
+                            // 3. 播放 reconstruction_complete_message.mp3
+                            const completeAudio = new Audio('assets/audio/reconstruction_complete_message.mp3');
+                            completeAudio.play().catch(error => {
+                                console.error('Error playing reconstruction_complete_message.mp3:', error);
+                            });
+                            
+                            // 4. 清空 stage5Container 的内容
+                            stage5Container.innerHTML = '';
+                            
+                            // 5. 创建并添加图片元素
+                            const resultImage = document.createElement('img');
+                            resultImage.id = 'stage5-result-image';
+                            resultImage.style.opacity = '0'; // 初始不可见
+                            resultImage.style.transition = 'opacity 1.5s ease-in-out';
+                            resultImage.style.width = '90%';
+                            resultImage.style.height = '90vh';
+                            resultImage.style.objectFit = 'contain';
+                            resultImage.style.borderRadius = '10px';
+                            resultImage.style.boxShadow = '0 0 30px rgba(0, 204, 255, 0.9)';
+                            resultImage.style.margin = 'auto'; // 居中显示
+                            
+                            // 6. 根据条件设置图片源
+                            if (window.playedCameraHigh && window.playedPhoneHigh) {
+                                resultImage.src = 'assets/picture/high_result.jpg';
+                                resultImage.alt = 'High Match Result';
+                            } else {
+                                resultImage.src = 'assets/picture/low_result.jpg';
+                                resultImage.alt = 'Low Match Result';
+                            }
+                            
+                            // 7. 将图片添加到容器中
+                            stage5Container.appendChild(resultImage);
+                            
+                            // 8. 使用 requestAnimationFrame 确保样式应用后再开始动画
+                            requestAnimationFrame(() => {
+                                // 9. 触发重绘
+                                void resultImage.offsetWidth;
+                                // 10. 设置不透明度为1，触发渐显效果
+                                resultImage.style.opacity = '1';
+                            });
+                            
+                            // 11. 可选：在图片显示一段时间后执行其他操作，例如返回主菜单
+                            // setTimeout(() => {
+                            //     // 例如：transitionToStage0();
+                            // }, 10000);
+                        });
+                        
+                        // 12. 开始播放 loading.mp3
+                        loadingAudio.play().catch(error => {
+                            console.error('Error playing loading.mp3:', error);
+                        });
                     });
+                    
+                    // 13. 派发 stageChange 事件
+                    document.dispatchEvent(new CustomEvent('stageChange', { detail: { stage: 'stage5' } }));
                 } else {
                     console.error('Stage 5 container not found!');
                     transitionToStage2(); // Fallback if Stage 5 is broken
@@ -1300,6 +1486,9 @@
                                 } else {
                                     console.warn('GestureRecognition.stopRecording 未找到，无法获取手势匹配结果');
                                 }
+                                // Play sound effect for match result
+                                const matchScoreAudio = new Audio('assets/audio/show_match_score.wav');
+                                matchScoreAudio.play().catch(e => console.error("Error playing match score audio:", e));
 
                                 console.log('Stage 4-2-1 (Knife) action reproduction time ended. Checking completion status.');
                                 const completionStatus = await markTagAsCompletedOnServer(TAG_NAMES.knife);
@@ -1828,7 +2017,182 @@ function transitionToStage4_1_1() {
                     transitionToStage2(true); // Add error transition
                 }
             }
+            // Listen for custom event to transition stages
+            document.addEventListener('requestStageTransition', function(event) {
+                if (event.detail && event.detail.stage) {
+                    const { stage: stageName, arg, currentActionStageId, tagName: completedTagName } = event.detail;
+                    const currentStageForTransition = currentStage; // Capture currentStage at time of event
+
+                    // Declare stageHandlers at the beginning of the function scope
+                    const stageHandlers = {
+                        'stage2': transitionToStage2,
+                        'stage3': transitionToStage3, // Assuming transitionToStage3 exists
+                        'stage3-1': transitionToStage3_1,
+                        'stage3-2': transitionToStage3_2,
+                        'stage3-3': transitionToStage3_3,
+                        'stage3-4': transitionToStage3_4,
+                        'stage4-1': transitionToStage4_1,
+                        'stage4-1-1': () => transitionToActionPhase('cup'),
+                        'stage4-2': transitionToStage4_2,
+                        'stage4-2-1': () => transitionToActionPhase('knife'),
+                        'stage4-3': transitionToStage4_3,
+                        'stage4-3-1': () => transitionToActionPhase('phone'),
+                        'stage4-4': transitionToStage4_4,
+                        'stage4-4-1': () => transitionToActionPhase('monitor'),
+                        'stage5': transitionToStage5
+                        // 'stage0' and 'stage1' are assumed not needed or handled elsewhere based on prior context
+                    };
+
+                    console.log(`Module script: Received 'requestStageTransition' event for stage: ${stageName}` +
+                                (arg !== undefined ? ` with arg: ${arg}` : '') +
+                                (completedTagName ? ` for tag: ${completedTagName}` : '') +
+                                (currentActionStageId ? ` from action stage: ${currentActionStageId}` : ''));
+
+                    // If a tag was completed and we are transitioning back to stage2, mark it on the server.
+                    if (completedTagName && stageName === 'stage2') {
+                        console.log(`Attempting to mark tag: ${completedTagName} as completed via requestStageTransition listener.`);
+                        markTagAsCompletedOnServer(completedTagName).then(response => {
+                            if (response && response.all_completed) {
+                                console.log('All tags completed based on server response! Directly transitioning to stage 5.');
+                                if (stageHandlers['stage5'] && typeof stageHandlers['stage5'] === 'function') {
+                                    stageHandlers['stage5'](); // Directly call transitionToStage5
+                                    return; // Exit early, preventing transition to stage2
+                                }
+                                console.error("Stage5 handler not found, cannot transition directly. Proceeding to stage2.");
+                            }
+                            // If not all completed, or if stage5 transition was not applicable/failed, proceed to stage2
+                            console.log('Not all tags completed or stage5 transition failed/not applicable, proceeding to target stage (stage2).');
+                            if (stageHandlers['stage2'] && typeof stageHandlers['stage2'] === 'function') { // Explicitly stage2
+                                stageHandlers['stage2'](arg); // Call original target e.g. transitionToStage2(arg)
+                            } else {
+                                console.error(`Module script: transitionToStage2 handler not found after tag completion check.`);
+                                if (typeof transitionToStage2 === 'function') transitionToStage2(true); // General Fallback
+                            }
+                        }).catch(error => {
+                            console.error(`Error in markTagAsCompletedOnServer from event listener:`, error);
+                            // On error, still attempt to transition to the original target stage (e.g., stage2)
+                            if (stageHandlers['stage2'] && typeof stageHandlers['stage2'] === 'function') { // Explicitly stage2
+                                stageHandlers['stage2'](arg);
+                            } else {
+                                console.error(`Module script: transitionToStage2 handler not found after error.`);
+                                if (typeof transitionToStage2 === 'function') transitionToStage2(true); // General Fallback
+                            }
+                        });
+                        return; // IMPORTANT: Stop further execution in the event listener for this event, as it's handled by the async .then() or .catch()
+                    }
+
+                    // If not a 'completed tag back to stage2' scenario, execute the transition directly
+                    if (stageHandlers[stageName] && typeof stageHandlers[stageName] === 'function') {
+                        stageHandlers[stageName](arg); // Pass arg; functions not expecting it will ignore it.
+                    } else {
+                        console.error(`Module script: No specific transition function handler found for stage: ${stageName} in stageHandlers map. Attempting fallback.`);
+                        if (typeof transitionToStage2 === 'function') {
+                            transitionToStage2(true); // Default fallback
+                        } else {
+                            console.error("Fallback to transitionToStage2 also failed.");
+                        }
+                    }
+                } else {
+                    console.error('Module script: Received malformed "requestStageTransition" event.', event.detail);
+                }
+            });
         }); // Closes DOMContentLoaded
         </script>
-    </body>
+    <script src="js/AudioManager.js"></script>
+    <script src="js/gesture.js"></script>
+    <script>
+window.playFeedbackVideoAndReturnToStage = function(videoSrc, targetReturnStage, currentActionStageId) {
+    console.log(`playFeedbackVideoAndReturnToStage called. Video: ${videoSrc}, Target Return Stage: ${targetReturnStage}, Current Action Stage: ${currentActionStageId}`);
+    const videoPlayer = document.getElementById('feedback-video-player'); // Ensure videoPlayer is defined here or passed in
+
+    if (!videoPlayer) {
+        console.error('Dedicated feedback video player (feedback-video-player) not found!');
+        // Fallback: Dispatch transition event even if video player is missing
+        let tagNameNoPlayer = null;
+        if (currentActionStageId) {
+            if (currentActionStageId === 'stage4-1-1') tagNameNoPlayer = 'cup';
+            else if (currentActionStageId === 'stage4-2-1') tagNameNoPlayer = 'knife';
+            else if (currentActionStageId === 'stage4-3-1') tagNameNoPlayer = 'phone';
+            else if (currentActionStageId === 'stage4-4-1') tagNameNoPlayer = 'monitor';
+        }
+
+        const detailForDispatchNoPlayer = { stage: targetReturnStage };
+        if (targetReturnStage === 'stage2') {
+            detailForDispatchNoPlayer.arg = true;
+        }
+        if (tagNameNoPlayer) {
+            detailForDispatchNoPlayer.tagName = tagNameNoPlayer;
+        }
+        console.log(`Dispatching custom event 'requestStageTransition' (no player) with detail:`, detailForDispatchNoPlayer);
+        document.dispatchEvent(new CustomEvent('requestStageTransition', { detail: detailForDispatchNoPlayer }));
+        return;
+    }
+
+    if (currentActionStageId) {
+        const actionStageContainerId = currentActionStageId + '-container';
+        const actionStageContainer = document.getElementById(actionStageContainerId);
+        if (actionStageContainer) {
+            actionStageContainer.style.display = 'none';
+            console.log(`Hid ${actionStageContainerId}`);
+        } else {
+            console.warn(`Container ${actionStageContainerId} not found to hide for stage ${currentActionStageId}.`);
+        }
+    } else {
+        console.warn('currentActionStageId not provided to playFeedbackVideoAndReturnToStage, no container hidden.');
+    }
+
+    videoPlayer.src = videoSrc;
+    videoPlayer.style.display = 'block'; // Make it visible for playback
+    videoPlayer.autoplay = true; 
+    videoPlayer.controls = false; 
+    videoPlayer.loop = false;
+
+    const cleanupAndDispatchTransition = () => {
+        videoPlayer.style.display = 'none'; // Hide video player after use
+        videoPlayer.removeEventListener('ended', onVideoEnd);
+        videoPlayer.removeEventListener('error', onVideoError);
+        
+        videoPlayer.pause();
+        videoPlayer.src = ""; // Clear src to stop video and free resources
+
+        let tagNameForDispatch = null;
+        if (currentActionStageId) { // currentActionStageId is available in this scope
+            if (currentActionStageId === 'stage4-1-1') tagNameForDispatch = 'cup';
+            else if (currentActionStageId === 'stage4-2-1') tagNameForDispatch = 'knife';
+            else if (currentActionStageId === 'stage4-3-1') tagNameForDispatch = 'phone';
+            else if (currentActionStageId === 'stage4-4-1') tagNameForDispatch = 'monitor';
+        }
+
+        const detailForDispatch = { stage: targetReturnStage };
+        if (targetReturnStage === 'stage2') {
+            detailForDispatch.arg = true;
+        }
+        if (tagNameForDispatch) {
+            detailForDispatch.tagName = tagNameForDispatch;
+        }
+        console.log(`Dispatching custom event 'requestStageTransition' with detail:`, detailForDispatch);
+        document.dispatchEvent(new CustomEvent('requestStageTransition', { detail: detailForDispatch }));
+    };
+
+    const onVideoEnd = () => {
+        console.log('Feedback video ended. Dispatching transition event for stage:', targetReturnStage);
+        cleanupAndDispatchTransition();
+    };
+
+    const onVideoError = (e) => {
+        console.error('Error playing feedback video:', e);
+        cleanupAndDispatchTransition(); // Still dispatch transition on error
+    };
+
+    videoPlayer.addEventListener('ended', onVideoEnd);
+    videoPlayer.addEventListener('error', onVideoError);
+
+    videoPlayer.play().catch(error => {
+        console.error('Error attempting to play feedback video (play() rejected):', error);
+        onVideoError(error); // Treat as an error to trigger cleanup and dispatch
+    });
+};
+</script>
+    <video id="feedback-video-player" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; object-fit: contain; z-index: 10000; background-color: black;"></video>
+</body>
 </html>

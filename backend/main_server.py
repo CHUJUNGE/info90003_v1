@@ -71,8 +71,14 @@ def load_scan_status():
         return {key: False for key in TARGET_TAGS_FOR_COMPLETION.values()} # Return default after init
 
 def save_scan_status(status_data):
+    # Calculate all_completed status based on the individual items
+    # TARGET_TAGS_FOR_COMPLETION must be accessible here (it's global in the script)
+    all_items_done = all(status_data.get(key, False) for key in TARGET_TAGS_FOR_COMPLETION.values())
+    status_data['all_completed'] = all_items_done # Add/update the all_completed key
+
     with open(SCAN_STATUS_FILE_PATH, 'w') as f:
         json.dump(status_data, f, indent=4)
+    print(f"Scan status saved. File now contains all_completed: {all_items_done}")
 
 def check_all_completed(status_data):
     return all(status_data.get(key, False) for key in TARGET_TAGS_FOR_COMPLETION.values())
@@ -117,8 +123,10 @@ def mark_tag_completed():
         save_scan_status(current_status)
         print(f"Tag '{tag_name_from_frontend}' ({status_key}) marked as completed.")
 
-    all_done = check_all_completed(current_status)
-    return {'all_completed': all_done, 'updated_status': current_status}
+    # After save_scan_status, current_status dictionary in memory now has 'all_completed' updated.
+    # So, we can directly use its value for the response.
+    all_done_for_response = current_status.get('all_completed', False) # Safely get it
+    return {'all_completed': all_done_for_response, 'updated_status': current_status}
 
 @app.route('/reset_scan_status', methods=['POST'])
 def reset_scan_status_route():
