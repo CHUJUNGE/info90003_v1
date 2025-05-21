@@ -174,6 +174,40 @@
             let scannedTags = new Set(); // Set to store EPCs of already processed tags
             let currentEPC = null; // To store the EPC of the tag currently being processed through a multi-stage flow
 
+            // 添加重置到Stage 0的函数
+            function resetToStage0() {
+                console.log('重置系统到初始阶段 (Stage 0)');
+                hideAllStages();
+                currentStage = 'stage0';
+                
+                // 显示标题
+                const titleElement = document.querySelector('.title');
+                if (titleElement) titleElement.style.display = 'block';
+                
+                // 初始化地球显示
+                const globeContainer = document.getElementById('globe-container');
+                if (globeContainer) {
+                    globeContainer.style.display = 'block';
+                    globeContainer.style.opacity = '1';
+                }
+                
+                // 播放初始阶段音乐
+                if (audioManager) {
+                    audioManager.stopAllSounds();
+                    audioManager.playSound('stage0Music');
+                }
+                
+                // 重置其他状态
+                isTransitioningToStage1 = false;
+                window.playedCameraHigh = false;
+                window.playedPhoneHigh = false;
+                
+                // 触发 stageChange 事件
+                document.dispatchEvent(new CustomEvent('stageChange', { detail: { stage: 'stage0' } }));
+                
+                console.log('系统已重置到初始阶段 (Stage 0)');
+            }
+            
             function hideAllStages() {
                 const selectors = [
                     '.initial-container', // For Stage 0
@@ -328,9 +362,8 @@
                                     connectStripLightEsp32Btn.disabled = false;
                                     connectStripLightEsp32Btn.textContent = '断开连接'; 
                                 }
-                                // Hide modal if BOTH are connected, or if the primary one connects?
-                                // For now, hide modal if the device that triggered 'connected' is the main one.
-                                if (deviceContext === '主ESP32') modal.style.display = 'none'; 
+                                // 注释掉自动关闭模态框的代码，确保连接成功后模态框不会自动关闭，需要用户手动关闭
+                                // if (deviceContext === '主ESP32') modal.style.display = 'none'; 
                                 break;
                             case 'disconnected':
                                 if (deviceContext === '主ESP32' && mainEsp32ModalStatus) mainEsp32ModalStatus.textContent = `主ESP32：已断开。${message}`;
@@ -976,10 +1009,32 @@
                                 resultImage.style.opacity = '1';
                             });
                             
-                            // 11. 可选：在图片显示一段时间后执行其他操作，例如返回主菜单
-                            // setTimeout(() => {
-                            //     // 例如：transitionToStage0();
-                            // }, 10000);
+                            // 11. 在图片显示30秒后自动重置系统状态，为下一个用户做准备
+                            setTimeout(() => {
+                                console.log('展示结果30秒后自动重置系统状态');
+                                // 调用后端 API 重置扫描状态
+                                fetch('/reset_scan_status', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json'
+                                    }
+                                })
+                                .then(response => response.json())
+                                .then(data => {
+                                    console.log('系统重置成功:', data);
+                                    // 重置前端状态
+                                    scannedTags = new Set(); // 清空已扫描标签集合
+                                    currentEPC = null; // 重置当前处理的EPC
+                                    window.playedCameraHigh = false; // 重置高匹配标记
+                                    window.playedPhoneHigh = false; // 重置高匹配标记
+                                    
+                                    // 返回到开始阶段 (Stage 0)
+                                    resetToStage0(); // 重置回到初始阶段 Stage 0
+                                })
+                                .catch(error => {
+                                    console.error('系统重置失败:', error);
+                                });
+                            }, 30000); // 30秒后自动重置
                         });
                         
                         // 12. 开始播放 loading.mp3

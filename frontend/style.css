@@ -9,6 +9,18 @@ body, html {
     overflow: hidden; /* Prevent scrollbars from Three.js canvas potentially */
 }
 
+/* 水平镜像翻转样式 - 对整个容器应用翻转 */
+.container {
+    transform: scaleX(-1);
+}
+
+/* 对3D元素再次翻转，使其恢复正常显示 */
+#floorplan-canvas,
+.scene-container canvas,
+#globe-canvas {
+    transform: scaleX(-1) !important; /* 再次翻转使其恢复原样 */
+}
+
 .container {
     display: flex;
     justify-content: center;
@@ -59,6 +71,51 @@ canvas {
     opacity: 1; /* Initial state */
     transition: opacity 0.5s ease-out; /* Transition for fade out */
     pointer-events: auto; /* Initially interactive */
+}
+
+.system-prompt {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.8vw; /* Smaller than title */
+    font-weight: 500;
+    color: #4D94FF;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    text-align: center;
+    padding: 15px;
+    position: absolute; /* For positioning at bottom */
+    bottom: 5%; /* Position at bottom */
+    left: 50%;
+    transform: translateX(-50%);
+    white-space: nowrap;
+    z-index: 100;
+    text-shadow:
+        -1px -1px 0 #00E5FF, 
+        1px 1px 0 #0052CC;
+    opacity: 0; /* Start invisible */
+    animation: pulse 2s infinite, fadeIn 1s forwards 2s; /* Pulse animation + delayed fade in */
+    transition: opacity 0.5s ease-out; /* 添加与标题相同的过渡效果 */
+}
+
+/* 标题容器样式 */
+.title-container {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    transition: opacity 0.5s ease-out;
+}
+
+@keyframes pulse {
+    0% { opacity: 0.7; }
+    50% { opacity: 1; }
+    100% { opacity: 0.7; }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0.7; }
+    to { opacity: 1; }
 }
 
 .stage-message {
@@ -274,7 +331,6 @@ html.fullscreen-active #fullscreen-btn {
     margin-top: 5vh; /* Match video margin-top */
     border-radius: 8px; /* Optional: if you like rounded corners */
     /* display: block; margin-left: auto; margin-right: auto; /* Centering typically handled by flex parent or specific layout needs */
-    animation: hardcoreGlitch 1s infinite alternate; /* Apply the glitch animation */
 }
 
 /* --- General Video Styling --- */
@@ -293,63 +349,6 @@ video {
     margin-bottom: 20px; /* Add some space if needed */
 }
 
-@keyframes hardcoreGlitch {
-  0% {
-    transform: translate(0, 0) skew(0deg);
-    opacity: 1;
-  }
-  5% {
-    transform: translate(-2px, 1px) skew(-2deg);
-    opacity: 0.85;
-  }
-  10% {
-    transform: translate(0, 0) skew(0deg);
-    opacity: 1;
-  }
-  25% {
-    transform: translate(2px, -1px) skew(2deg);
-    opacity: 0.7;
-  }
-  30% {
-    transform: translate(0, 0) skew(0deg);
-    opacity: 1;
-  }
-  40% {
-    opacity: 0.9;
-  }
-  50% {
-    transform: translate(-1px, 2px) skew(-1deg);
-    opacity: 0.6;
-  }
-  51% {
-    transform: translate(0, 0) skew(0deg);
-    opacity: 1;
-  }
-  65% {
-    transform: translate(1px, -2px) skew(1deg);
-    opacity: 0.75;
-  }
-  70% {
-    transform: translate(0, 0) skew(0deg);
-    opacity: 1;
-  }
-  80% { /* Add a more noticeable jump */
-    transform: translate(-3px, 3px) skew(-3deg);
-    opacity: 0.5;
-  }
-  81% {
-    transform: translate(0,0) skew(0deg);
-    opacity: 1;
-  }
-  100% {
-    transform: translate(0, 0) skew(0deg);
-    opacity: 1;
-  }
-}
-
-.glitch-image-effect {
-  animation: hardcoreGlitch 0.7s infinite steps(1, end);
-}
 
 /* ESP32 Status Indicator Styles */
 #esp32-status-indicator {

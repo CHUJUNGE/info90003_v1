@@ -19,9 +19,26 @@ class FloorplanRenderer3D {
     this.textures = {};
   }
 
+  // 检查WebGL支持
+  _checkWebGLSupport() {
+    try {
+      const canvas = document.createElement('canvas');
+      return !!window.WebGLRenderingContext && 
+             (canvas.getContext('webgl') || canvas.getContext('experimental-webgl'));
+    } catch (e) {
+      return false;
+    }
+  }
+
   // 初始化渲染器
   init() {
     if (this.isInitialized) return;
+
+    // 检查WebGL支持
+    if (!this._checkWebGLSupport()) {
+      console.error('WebGL不受支持或被禁用，无法初始化渲染器');
+      return;
+    }
 
     const canvas = document.getElementById(this.canvasId);
     if (!canvas) {
@@ -29,58 +46,75 @@ class FloorplanRenderer3D {
       return;
     }
 
-    // 创建场景
-    this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x000000);
-    this.scene.fog = new THREE.Fog(0x000000, 10, 30);
+    try {
+      // 创建场景 - 使用深蓝色背景而不是纯黑色
+      this.scene = new THREE.Scene();
+      this.scene.background = new THREE.Color(0x000a1f);
+      this.scene.fog = new THREE.Fog(0x000a1f, 10, 30);
 
-    // 创建相机
-    const aspect = canvas.clientWidth / canvas.clientHeight;
-    this.camera = new THREE.PerspectiveCamera(45, aspect, 0.1, 1000);
-    this.camera.position.set(0, 15, 15);
-    this.camera.lookAt(0, 0, 0);
+      // 创建相机
+      const aspect = canvas.clientWidth / canvas.clientHeight || 1; // 防止除以0
+      this.camera = new THREE.PerspectiveCamera(45, aspect, 0.1, 1000);
+      this.camera.position.set(0, 15, 15);
+      this.camera.lookAt(0, 0, 0);
 
-    // 创建渲染器
-    this.renderer = new THREE.WebGLRenderer({
-      canvas: canvas,
-      antialias: true,
-      alpha: true
-    });
-    
-    // 确保使用容器的实际尺寸
-    const container = canvas.parentElement;
-    const containerWidth = container ? container.clientWidth : window.innerWidth;
-    const containerHeight = container ? container.clientHeight : window.innerHeight;
-    
-    console.log('初始化时容器尺寸:', containerWidth, containerHeight);
-    
-    this.renderer.setSize(containerWidth, containerHeight, false);
-    this.renderer.setPixelRatio(window.devicePixelRatio);
-    this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      // 创建渲染器，添加错误处理
+      try {
+        this.renderer = new THREE.WebGLRenderer({
+          canvas: canvas,
+          antialias: true,
+          alpha: true,
+          powerPreference: 'high-performance',
+          failIfMajorPerformanceCaveat: false // 允许在性能受限的情况下也创建上下文
+        });
+      } catch (error) {
+        console.error('WebGL渲染器创建失败:', error);
+        // 尝试使用基本设置重新创建
+        try {
+          this.renderer = new THREE.WebGLRenderer({ canvas: canvas });
+        } catch (fallbackError) {
+          console.error('基本渲染器创建也失败:', fallbackError);
+          return; // 如果仍然失败，直接返回
+        }
+      }
+      
+      // 确保使用容器的实际尺寸
+      const container = canvas.parentElement;
+      const containerWidth = container ? container.clientWidth : window.innerWidth;
+      const containerHeight = container ? container.clientHeight : window.innerHeight;
+      
+      console.log('初始化时容器尺寸:', containerWidth, containerHeight);
+      
+      this.renderer.setSize(containerWidth, containerHeight, false);
+      this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // 限制像素比以提高性能
+      this.renderer.shadowMap.enabled = true;
+      this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-    // 添加光源
-    this.setupLights();
+      // 添加光源
+      this.setupLights();
 
-    // 创建材质
-    this.createMaterials();
+      // 创建材质
+      this.createMaterials();
 
-    // 添加窗口大小变化监听
-    window.addEventListener('resize', this.onWindowResize.bind(this));
+      // 添加窗口大小变化监听
+      window.addEventListener('resize', this.onWindowResize.bind(this));
 
-    this.isInitialized = true;
-    console.log('3D户型图渲染器初始化完成');
+      this.isInitialized = true;
+      console.log('3D户型图渲染器初始化完成');
+    } catch (error) {
+      console.error('3D户型图渲染器初始化失败:', error);
+    }
   }
 
   // 设置光源
   setupLights() {
-    // 环境光 - 纯蓝色调
-    const ambientLight = new THREE.AmbientLight(0x0055ff, 0.5);
+    // 环境光 - 更亮的蓝色调
+    const ambientLight = new THREE.AmbientLight(0x3388ff, 0.8);
     this.scene.add(ambientLight);
     this.lights.ambient = ambientLight;
 
-    // 主方向光 - 白色调
-    const mainLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    // 主方向光 - 白色调，增强强度
+    const mainLight = new THREE.DirectionalLight(0xffffff, 1.0);
     mainLight.position.set(5, 10, 5);
     mainLight.castShadow = true;
     mainLight.shadow.mapSize.width = 1024;
@@ -94,22 +128,22 @@ class FloorplanRenderer3D {
     this.scene.add(mainLight);
     this.lights.main = mainLight;
 
-    // 点光源 - 主蓝色光
-    const blueLight = new THREE.PointLight(0x0066ff, 1.2, 20);
+    // 点光源 - 主蓝色光，更亮更鲜艳
+    const blueLight = new THREE.PointLight(0x44aaff, 1.5, 25);
     blueLight.position.set(0, 8, 0);
     blueLight.castShadow = true;
     this.scene.add(blueLight);
     this.lights.blue = blueLight;
 
-    // 点光源 - 客厅
-    const livingRoomLight = new THREE.PointLight(0x0077ff, 0.7, 10);
+    // 点光源 - 客厅，更亮的蓝色
+    const livingRoomLight = new THREE.PointLight(0x55aaff, 1.0, 12);
     livingRoomLight.position.set(3, 3, 3);
     livingRoomLight.castShadow = true;
     this.scene.add(livingRoomLight);
     this.lights.livingRoom = livingRoomLight;
 
-    // 点光源 - 厨房
-    const kitchenLight = new THREE.PointLight(0x0077ff, 0.7, 10);
+    // 点光源 - 厨房，更亮的蓝色
+    const kitchenLight = new THREE.PointLight(0x55aaff, 1.0, 12);
     kitchenLight.position.set(-3, 3, -3);
     kitchenLight.castShadow = true;
     this.scene.add(kitchenLight);
@@ -118,41 +152,41 @@ class FloorplanRenderer3D {
 
   // 创建材质
   createMaterials() {
-    // 地板材质
+    // 地板材质 - 更亮的蓝色
     this.materials.floor = new THREE.MeshStandardMaterial({
-      color: 0x001133,  // 纯深蓝色
-      roughness: 0.8,
-      metalness: 0.4,
-      emissive: 0x0033aa,  // 纯蓝色发光
-      emissiveIntensity: 0.2
-    });
-
-    // 墙壁材质
-    this.materials.wall = new THREE.MeshStandardMaterial({
-      color: 0x002266,  // 纯深蓝色
+      color: 0x002255,  // 更亮的深蓝色
       roughness: 0.7,
       metalness: 0.5,
-      transparent: true,
-      opacity: 0.85,
-      emissive: 0x0055dd,  // 纯蓝色发光
-      emissiveIntensity: 0.2
+      emissive: 0x0055cc,  // 更亮的蓝色发光
+      emissiveIntensity: 0.3
     });
 
-    // 发光材质 - 用于边缘高亮
-    this.materials.glow = new THREE.MeshBasicMaterial({
-      color: 0x0077ff,  // 纯亮蓝色
+    // 墙壁材质 - 更亮的蓝色
+    this.materials.wall = new THREE.MeshStandardMaterial({
+      color: 0x0033aa,  // 更亮的深蓝色
+      roughness: 0.6,
+      metalness: 0.6,
       transparent: true,
-      opacity: 0.7,
+      opacity: 0.85,
+      emissive: 0x0088ff,  // 更亮的蓝色发光
+      emissiveIntensity: 0.35
+    });
+
+    // 发光材质 - 用于边缘高亮，更亮更鲜艳
+    this.materials.glow = new THREE.MeshBasicMaterial({
+      color: 0x44aaff,  // 更亮更鲜艳的蓝色
+      transparent: true,
+      opacity: 0.8,
       side: THREE.DoubleSide
     });
 
-    // 家具材质
+    // 家具材质 - 更亮的蓝色
     this.materials.furniture = new THREE.MeshStandardMaterial({
-      color: 0x003377,  // 纯蓝色
-      roughness: 0.5,
-      metalness: 0.6,
-      emissive: 0x0055bb,  // 纯蓝色发光
-      emissiveIntensity: 0.3
+      color: 0x0055cc,  // 更亮的蓝色
+      roughness: 0.4,
+      metalness: 0.7,
+      emissive: 0x0088dd,  // 更亮的蓝色发光
+      emissiveIntensity: 0.4
     });
 
     // 线框材质
@@ -360,9 +394,9 @@ class FloorplanRenderer3D {
     // 添加全息投影底座
     const hologramGeometry = new THREE.BoxGeometry(12.5, 0.05, 12.5);
     const hologramMaterial = new THREE.MeshBasicMaterial({
-      color: 0x0066ff,
+      color: 0x44aaff,
       transparent: true,
-      opacity: 0.1,
+      opacity: 0.15,
       wireframe: true
     });
     
@@ -402,9 +436,9 @@ class FloorplanRenderer3D {
     
     // 创建红色标记点材质
     const redMarkerMaterial = new THREE.MeshBasicMaterial({
-      color: 0xff0000,
-      emissive: 0xff0000,
-      emissiveIntensity: 1.0
+      color: 0xff2222,
+      emissive: 0xff5555,
+      emissiveIntensity: 1.2
     });
     
     // 创建标记点几何体
@@ -485,9 +519,9 @@ class FloorplanRenderer3D {
     // 创建圆形底座
     const baseGeometry = new THREE.CircleGeometry(0.4, 32);
     const baseMaterial = new THREE.MeshBasicMaterial({
-      color: 0x0066ff,
+      color: 0x55aaff,
       transparent: true,
-      opacity: 0.2,
+      opacity: 0.3,
       side: THREE.DoubleSide
     });
     const base = new THREE.Mesh(baseGeometry, baseMaterial);
@@ -498,9 +532,9 @@ class FloorplanRenderer3D {
     // 创建文本标签（这里只是用一个平面代替，实际应该使用TextGeometry）
     const labelGeometry = new THREE.PlaneGeometry(0.8, 0.2);
     const labelMaterial = new THREE.MeshBasicMaterial({
-      color: 0x0077ff,
+      color: 0x55aaff,
       transparent: true,
-      opacity: 0.6,
+      opacity: 0.7,
       side: THREE.DoubleSide
     });
     const label = new THREE.Mesh(labelGeometry, labelMaterial);
@@ -571,8 +605,14 @@ class FloorplanRenderer3D {
       });
     }
 
-    // 渲染场景
-    this.render();
+    // 直接渲染场景，而不是调用render函数
+    if (this.renderer && this.scene && this.camera) {
+      try {
+        this.renderer.render(this.scene, this.camera);
+      } catch (error) {
+        console.error('动画渲染时发生错误:', error);
+      }
+    }
 
     // 继续动画循环
     this.animationId = requestAnimationFrame(this.animate.bind(this));
@@ -582,36 +622,58 @@ class FloorplanRenderer3D {
   render() {
     if (!this.isInitialized) return;
     
-    // 确保渲染器尺寸正确
-    this.onWindowResize();
+    if (!this.objects.floor) {
+      this.createFloorplan();
+    }
     
-    // 渲染场景
-    this.renderer.render(this.scene, this.camera);
+    // 如果渲染器、场景和相机都准备好了，才渲染
+    if (this.renderer && this.scene && this.camera) {
+      try {
+        this.renderer.render(this.scene, this.camera);
+      } catch (error) {
+        console.error('渲染时发生错误:', error);
+      }
+    }
   }
-
+  
   // 窗口大小变化处理
   onWindowResize() {
-    const canvas = this.renderer.domElement;
-    const container = canvas.parentElement;
+    // 防止在渲染器未初始化时调用
+    if (!this.renderer || !this.scene || !this.camera) {
+      console.warn('渲染器、场景或相机未准备好，跳过窗口大小调整');
+      return;
+    }
     
-    // 使用容器的实际尺寸，而不是canvas的尺寸
-    const containerWidth = container ? container.clientWidth : window.innerWidth;
-    const containerHeight = container ? container.clientHeight : window.innerHeight;
-    
-    console.log('调整尺寸为:', containerWidth, containerHeight);
-    
-    // 始终设置渲染器尺寸为容器尺寸
-    this.renderer.setSize(containerWidth, containerHeight, false);
-    this.renderer.setViewport(0, 0, containerWidth, containerHeight);
-    
-    // 更新相机宽高比
-    this.camera.aspect = containerWidth / containerHeight;
-    this.camera.updateProjectionMatrix();
-    
-    // 强制渲染一帧
-    this.renderer.render(this.scene, this.camera);
+    try {
+      const canvas = this.renderer.domElement;
+      if (!canvas) {
+        console.warn('渲染器DOM元素不存在，跳过窗口大小调整');
+        return;
+      }
+      
+      const container = canvas.parentElement;
+      
+      // 使用容器的实际尺寸，而不是canvas的尺寸
+      const containerWidth = container ? container.clientWidth : window.innerWidth;
+      const containerHeight = container ? container.clientHeight : window.innerHeight;
+      
+      // 设置渲染器尺寸为容器尺寸
+      this.renderer.setSize(containerWidth, containerHeight, false);
+      this.renderer.setViewport(0, 0, containerWidth, containerHeight);
+      
+      // 更新相机宽高比
+      this.camera.aspect = containerWidth / containerHeight;
+      this.camera.updateProjectionMatrix();
+    } catch (error) {
+      console.error('窗口大小调整时发生错误:', error);
+    }
   }
 
+  // 隐藏户型图
+  hide() {
+    this.stopAnimation();
+  }
+  
   // 显示户型图
   show() {
     if (!this.isInitialized) {
@@ -624,11 +686,17 @@ class FloorplanRenderer3D {
     
     // 开始动画
     this.startAnimation();
-  }
-
-  // 隐藏户型图
-  hide() {
-    this.stopAnimation();
+    
+    // 渲染一帧
+    if (this.renderer && this.scene && this.camera) {
+      try {
+        this.renderer.render(this.scene, this.camera);
+      } catch (error) {
+        console.error('渲染时发生错误:', error);
+      }
+    }
+    
+    console.log('3D户型图显示完成');
   }
   
   // 缩放到茶几上的红点证据

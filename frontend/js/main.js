@@ -59,6 +59,8 @@ document.addEventListener('DOMContentLoaded', () => {
     esp32Main.onConnect(() => { // Changed from esp32Main.on('connect', ...)
         updateConnectionStatusUI('Main ESP32', 'Connected', mainStatusModal, mainStatusIndicator);
         if (connectMainBtn) connectMainBtn.textContent = 'Disconnect Main ESP32';
+        // 连接成功后不自动关闭模态框，让用户手动关闭
+        console.log('Main ESP32连接成功，模态框保持打开状态，需要手动关闭');
     });
 
     esp32Main.onDisconnect((reason) => { // Changed from esp32Main.on('disconnect', ...)
@@ -94,6 +96,8 @@ document.addEventListener('DOMContentLoaded', () => {
     esp32StripLight.on('connect', (deviceName) => {
         updateConnectionStatusUI('Strip Light ESP32', 'Connected', stripStatusModal, stripStatusIndicator);
         if (connectStripBtn) connectStripBtn.textContent = 'Disconnect Strip Light ESP32';
+        // 连接成功后不自动关闭模态框，让用户手动关闭
+        console.log('Strip Light ESP32连接成功，模态框保持打开状态，需要手动关闭');
     });
 
     esp32StripLight.on('disconnect', (deviceName, reason) => {
@@ -118,6 +122,25 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('click', (event) => {
         if (event.target === modal && modal) {
             modal.style.display = 'none';
+        }
+    });
+    
+    // 确保模态框在页面加载时显示
+    if (modal) {
+        modal.style.display = 'block';
+        console.log('ESP32连接模态框已显示，连接成功后不会自动关闭，需要手动关闭');
+    }
+    
+    // 添加空格键切换模态框显示/隐藏的功能
+    document.addEventListener('keydown', (event) => {
+        if (event.code === 'Space' && modal) {
+            if (modal.style.display === 'none') {
+                modal.style.display = 'block';
+            } else {
+                modal.style.display = 'none';
+            }
+            // 防止空格键滚动页面
+            event.preventDefault();
         }
     });
 

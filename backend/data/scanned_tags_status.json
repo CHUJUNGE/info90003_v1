@@ -1,6 +1,7 @@
 {
-    "cup_completed": true,
-    "knife_completed": true,
-    "phone_completed": true,
-    "monitor_completed": true
+    "cup_completed": false,
+    "knife_completed": false,
+    "phone_completed": false,
+    "monitor_completed": false,
+    "all_completed": false
 }
