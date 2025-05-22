@@ -961,38 +961,56 @@
                             resultImage.id = 'stage5-result-image';
                             resultImage.style.opacity = '0'; // 初始不可见
                             resultImage.style.transition = 'opacity 1.5s ease-in-out';
-                            resultImage.style.width = '100%';
+                            resultImage.style.width = '100vw';
                             resultImage.style.height = '100vh';
-                            resultImage.style.objectFit = 'contain'; // 改回contain以显示完整图片
+                            resultImage.style.objectFit = 'contain';
                             resultImage.style.position = 'fixed';
                             resultImage.style.top = '0';
                             resultImage.style.left = '0';
-                            resultImage.style.zIndex = '1000';
-                            resultImage.style.backgroundColor = 'rgba(0, 0, 0, 0.9)'; // 添加深色背景
-                            resultImage.style.padding = '0'; // 移除内边距
-                            resultImage.style.margin = '0'; // 移除外边距
-                            resultImage.style.borderRadius = '0'; // 移除圆角
+                            resultImage.style.zIndex = '9999';
+                            resultImage.style.backgroundColor = '#000';
+                            resultImage.style.padding = '0';
+                            resultImage.style.margin = '0';
+                            resultImage.style.display = 'block';
+                            resultImage.style.boxSizing = 'border-box';
+                            resultImage.style.border = 'none';
                             resultImage.style.boxShadow = '0 0 30px rgba(0, 204, 255, 0.9)';
+                            // 确保图片完全覆盖整个屏幕
+                            document.body.style.overflow = 'hidden';
                             
                             // 6. 根据条件设置图片源
                             if (window.playedCameraHigh && window.playedPhoneHigh) {
-                                resultImage.src = 'assets/picture/high_result.jpg';
+                                resultImage.src = 'assets/picture/high_result.png';
                                 resultImage.alt = 'High Match Result';
+                                console.log('Loading high result image: assets/picture/high_result.png');
                             } else {
-                                resultImage.src = 'assets/picture/low_result.jpg';
+                                resultImage.src = 'assets/picture/low_result.png';
                                 resultImage.alt = 'Low Match Result';
+                                console.log('Loading low result image: assets/picture/low_result.png');
                             }
                             
-                            // 7. 将图片添加到容器中
-                            stage5Container.appendChild(resultImage);
+                            // 添加图片加载事件监听器以便调试
+                            resultImage.onload = function() {
+                                console.log('图片加载成功，尺寸：' + this.naturalWidth + 'x' + this.naturalHeight);
+                            };
                             
-                            // 8. 使用 requestAnimationFrame 确保样式应用后再开始动画
-                            requestAnimationFrame(() => {
-                                // 9. 触发重绘
-                                void resultImage.offsetWidth;
-                                // 10. 设置不透明度为1，触发渐显效果
+                            resultImage.onerror = function() {
+                                console.error('图片加载失败');
+                            };
+                            
+                            // 7. 将图片添加到body以确保全屏显示，同时保留在容器中的引用以确保计时器正常工作
+                            document.body.appendChild(resultImage);
+                            stage5Container.resultImageRef = resultImage; // 在容器中保存引用以确保计时器可以访问
+                            console.log('添加图片到body并保存引用: ' + resultImage.src);
+                            
+                            // 强制重绘
+                            resultImage.getBoundingClientRect();
+                            
+                            // 8. 等待短暂后显示图片（添加渐变效果）
+                            setTimeout(() => {
+                                console.log('显示图片');
                                 resultImage.style.opacity = '1';
-                            });
+                            }, 500);
                             
                             // 11. 在图片显示30秒后自动重置系统状态，为下一个用户做准备
                             setTimeout(() => {
