@@ -55,9 +55,9 @@
                 </div>
                 
                 <!-- Scan instruction image and text -->
-                <div id="scan-instruction" style="position: absolute; right: 30px; bottom: 30px; text-align: center; opacity: 0; transition: opacity 1s ease-in;">
-                    <img src="assets/picture/scan_instructor.png" alt="Scan Instructor" style="max-width: 300px; display: block; margin: 0 auto;">
-                    <p class="scan-text">Scan the evidence to uncover the truth</p>
+                <div id="scan-instruction" style="position: absolute; right: 30px; bottom: 170px; text-align: center; opacity: 0; transition: opacity 1s ease-in;">
+                    <img src="assets/picture/scan_instructor.png" alt="Scan Instructor" style="max-width: 350px; display: block; margin: 0 auto; transform: translateX(-30px);">
+                    <p class="scan-text" style="font-size: 2.5em; transform: translateX(-50px);">Scan the evidence<br>to uncover the truth</p>
                 </div>
             </div>
             <!-- Stage 3-1: RFID Scan Result for Cup -->
@@ -306,77 +306,62 @@
                 if (typeof ESP32BLEConnection === 'undefined') {
                     console.error('ESP32BLEConnection类未加载。请检查脚本引用。');
                     if (mainEsp32ModalStatus) mainEsp32ModalStatus.textContent = '错误：BLE脚本未加载。';
-                    if (stripLightEsp32ModalStatus) stripLightEsp32ModalStatus.textContent = '错误：BLE脚本未加载。';
+                    // 灯带ESP32相关代码已移除
                     // 如果类未加载，禁用连接按钮
                     if (connectMainEsp32Btn) connectMainEsp32Btn.disabled = true;
-                    if (connectStripLightEsp32Btn) connectStripLightEsp32Btn.disabled = true;
+                    // 灯带ESP32相关代码已移除
                 } else {
                     // 创建ESP32BLE连接对象 (This will be for the Main ESP32 by default)
                     // TODO: Instantiate separate connections for main and strip light ESP32s
                     esp32Connection = new ESP32BLEConnection(); // Assumed to be for Main ESP32
-                    // let stripLightEsp32Connection = new ESP32BLEConnection(STRIP_LIGHT_ESP32_CONFIG); // Example for later
+                    // 灯带ESP32相关代码已移除
 
                     function updateUI(state, message = '', deviceContext = '主ESP32') { // Default context to Main ESP32
                         statusIndicator.classList.add('visible');
                         switch (state) {
                             case 'connecting':
                                 if (deviceContext === '主ESP32' && mainEsp32ModalStatus) mainEsp32ModalStatus.textContent = `主ESP32：正在连接... ${message}`;
-                                else if (deviceContext === '灯带ESP32' && stripLightEsp32ModalStatus) stripLightEsp32ModalStatus.textContent = `灯带ESP32：正在连接... ${message}`;
+                                // 灯带ESP32相关代码已移除
                                 
                                 if (deviceContext === '主ESP32' && mainEsp32StatusText) {
                                     mainEsp32StatusText.textContent = '正在连接...';
                                     mainEsp32StatusText.className = 'connecting';
                                 }
-                                else if (deviceContext === '灯带ESP32' && stripLightEsp32StatusText) {
-                                    stripLightEsp32StatusText.textContent = '正在连接...';
-                                    stripLightEsp32StatusText.className = 'connecting';
-                                }
+                                // 灯带ESP32相关代码已移除
 
                                 if (deviceContext === '主ESP32' && connectMainEsp32Btn) {
                                     connectMainEsp32Btn.disabled = true;
                                     connectMainEsp32Btn.textContent = '正在连接...';
                                 }
-                                else if (deviceContext === '灯带ESP32' && connectStripLightEsp32Btn) {
-                                    connectStripLightEsp32Btn.disabled = true;
-                                    connectStripLightEsp32Btn.textContent = '正在连接...';
-                                }
+                                // 灯带ESP32相关代码已移除
                                 break;
                             case 'connected':
                                 if (deviceContext === '主ESP32' && mainEsp32ModalStatus) mainEsp32ModalStatus.textContent = `主ESP32：已连接！`;
-                                else if (deviceContext === '灯带ESP32' && stripLightEsp32ModalStatus) stripLightEsp32ModalStatus.textContent = `灯带ESP32：已连接！`;
+                                // 灯带ESP32相关代码已移除
 
                                 if (deviceContext === '主ESP32' && mainEsp32StatusText) {
                                     mainEsp32StatusText.textContent = '已连接';
                                     mainEsp32StatusText.className = 'connected';
                                 }
-                                else if (deviceContext === '灯带ESP32' && stripLightEsp32StatusText) {
-                                    stripLightEsp32StatusText.textContent = '已连接';
-                                    stripLightEsp32StatusText.className = 'connected';
-                                }
+                                // 灯带ESP32相关代码已移除
 
                                 if (deviceContext === '主ESP32' && connectMainEsp32Btn) {
                                     connectMainEsp32Btn.disabled = false;
                                     connectMainEsp32Btn.textContent = '断开连接'; 
                                 }
-                                else if (deviceContext === '灯带ESP32' && connectStripLightEsp32Btn) {
-                                    connectStripLightEsp32Btn.disabled = false;
-                                    connectStripLightEsp32Btn.textContent = '断开连接'; 
-                                }
+                                // 灯带ESP32相关代码已移除
                                 // 注释掉自动关闭模态框的代码，确保连接成功后模态框不会自动关闭，需要用户手动关闭
                                 // if (deviceContext === '主ESP32') modal.style.display = 'none'; 
                                 break;
                             case 'disconnected':
                                 if (deviceContext === '主ESP32' && mainEsp32ModalStatus) mainEsp32ModalStatus.textContent = `主ESP32：已断开。${message}`;
-                                else if (deviceContext === '灯带ESP32' && stripLightEsp32ModalStatus) stripLightEsp32ModalStatus.textContent = `灯带ESP32：已断开。${message}`;
+                                // 灯带ESP32相关代码已移除
 
                                 if (deviceContext === '主ESP32' && mainEsp32StatusText) {
                                     mainEsp32StatusText.textContent = '已断开连接';
                                     mainEsp32StatusText.className = 'disconnected';
                                 }
-                                else if (deviceContext === '灯带ESP32' && stripLightEsp32StatusText) {
-                                    stripLightEsp32StatusText.textContent = '已断开连接';
-                                    stripLightEsp32StatusText.className = 'disconnected';
-                                }
+                                // 灯带ESP32相关代码已移除
 
                                 if (deviceContext === '主ESP32' && connectMainEsp32Btn) {
                                     connectMainEsp32Btn.disabled = false;
@@ -389,16 +374,13 @@
                                 break;
                             case 'error':
                                 if (deviceContext === '主ESP32' && mainEsp32ModalStatus) mainEsp32ModalStatus.textContent = `主ESP32：错误。${message}`;
-                                else if (deviceContext === '灯带ESP32' && stripLightEsp32ModalStatus) stripLightEsp32ModalStatus.textContent = `灯带ESP32：错误。${message}`;
+                                // 灯带ESP32相关代码已移除
                                 
                                 if (deviceContext === '主ESP32' && mainEsp32StatusText) {
                                     mainEsp32StatusText.textContent = '错误';
                                     mainEsp32StatusText.className = 'disconnected'; 
                                 }
-                                else if (deviceContext === '灯带ESP32' && stripLightEsp32StatusText) {
-                                    stripLightEsp32StatusText.textContent = '错误';
-                                    stripLightEsp32StatusText.className = 'disconnected'; 
-                                }
+                                // 灯带ESP32相关代码已移除
 
                                 if (deviceContext === '主ESP32' && connectMainEsp32Btn) {
                                     connectMainEsp32Btn.disabled = false;
@@ -411,15 +393,12 @@
                                 break;
                             default: 
                                 if (mainEsp32ModalStatus) mainEsp32ModalStatus.textContent = '主ESP32: 空闲';
-                                if (stripLightEsp32ModalStatus) stripLightEsp32ModalStatus.textContent = '灯带ESP32: 空闲';
+                                // 灯带ESP32相关代码已移除
                                 if (mainEsp32StatusText) {
                                     mainEsp32StatusText.textContent = '已断开连接';
                                     mainEsp32StatusText.className = 'disconnected';
                                 }
-                                if (stripLightEsp32StatusText) {
-                                    stripLightEsp32StatusText.textContent = '已断开连接';
-                                    stripLightEsp32StatusText.className = 'disconnected';
-                                }
+                                // 灯带ESP32相关代码已移除
                                 statusIndicator.classList.remove('visible'); 
                         }
                     }
