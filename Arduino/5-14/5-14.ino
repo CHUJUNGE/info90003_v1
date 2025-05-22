@@ -58,8 +58,6 @@ const long vibrationInterval = 300;   // 每次震动 OFF 持续时间 (ms)
 // 5: 蓝色带尾巴转圈
 int ledMode = 0;  // 初始默认模式为关闭
 
-// LED 控制变量
-
 bool shouldAnimate = false;           // 是否应该执行动画更新
 int currentLed = 0;                   // 当前动画的起始 LED 序号
 unsigned long previousLedMillis = 0;  // 上次动画步进的时间
@@ -128,7 +126,6 @@ void handleMotor(unsigned long currentTime);
 void setLedMode(int mode);
 void handleLED(unsigned long currentTime);
 void constantColor(uint32_t c);
-
 
 // ====== 新增 BLE 回调类 ======
 class MyBLEServerCallbacks: public BLEServerCallbacks {
@@ -233,13 +230,9 @@ void setup() {
 
   // 初始化 LED 灯带
   strip.begin();
+  strip.show();            // 初始化时清除所有像素 (熄灭)
   strip.setBrightness(10); // 设置全局亮度为 10 (范围 0-255)
-  
-  strip.clear(); // 先清除所有灯珠
-  strip.show(); // 立即显示
-  
-  // 然后设置初始LED模式（其中会再次确保指定灯珠常亮）
-  setLedMode(ledMode);
+  setLedMode(ledMode); // 设置初始LED模式
 
   // 初始化按钮引脚
   pinMode(BUTTON_PIN, INPUT_PULLUP); // 假设使用内部上拉
@@ -399,258 +392,342 @@ void loop() {
   // 检测按钮状态
   checkButton(currentTime);
 
-
-
   // 定期处理MPU数据（当前仅串口输出，后续改为BLE发送）
   if (currentTime - lastMpuTime >= 200) { // 例如每200ms处理一次
     lastMpuTime = currentTime;
     readMPU6050Data(); // Update MPU data handling to use BLE
   }
   
-  // ...其他代码...
-}
+  // -------- 移除/注释掉 WebSocket 清理和广播代码 --------
+  // ws.cleanupClients(); // 定期清理断开的WebSocket客户端
+  // if (automaticDataSending && (currentTime - lastSensorDataTime >= SENSOR_DATA_INTERVAL)) {
+  //   if (connectedClients > 0) {
+  //     // broadcastMPUData(); // 广播MPU数据给所有连接的客户端
+  //     lastSensorDataTime = currentTime;
+  //   }
+  // }
+  // ----------------------------------------------------
 
-
-
-// 设置 LED 模式
-void setLedMode(int mode) {
-  ledMode = mode;
-  
-  // 根据模式设置 LED 状态
-  switch (ledMode) {
-    case 0: // 关闭
-      strip.clear();
-      shouldAnimate = false;
-      break;
-    case 1: // 红色常亮
-      constantColor(strip.Color(255, 0, 0));
-      shouldAnimate = false;
-      break;
-    case 2: // 蓝色常亮
-      constantColor(strip.Color(0, 0, 255));
-      shouldAnimate = false;
-      break;
-    case 3: // 绿色常亮
-      constantColor(strip.Color(0, 255, 0));
-      shouldAnimate = false;
-      break;
-    case 4: // 红色带尾巴转圈
-      strip.clear();
-      shouldAnimate = true;
-      currentLed = 0;
-      break;
-    case 5: // 蓝色带尾巴转圈
-      strip.clear();
-      shouldAnimate = true;
-      currentLed = 0;
-      break;
-    default:
-      strip.clear();
-      shouldAnimate = false;
-      break;
+  // ====== 新增 BLE 连接状态管理和数据发送（占位） ======
+  if (bleDeviceConnected && !oldBleDeviceConnected) {
+      oldBleDeviceConnected = bleDeviceConnected; // Should be set in onConnect
+      // 可以在这里做一些设备刚连接上的操作
   }
-  
+  if (!bleDeviceConnected && oldBleDeviceConnected) {
+      oldBleDeviceConnected = bleDeviceConnected; // Should be set in onDisconnect
+      Serial.println("Device was disconnected (loop check).");
+      // 可能需要停止某些依赖连接的操作
+  }
+  // 后续在这里添加通过BLE发送MPU数据、按钮状态等的逻辑
+  // 例如:
+  // if (bleDeviceConnected && automaticDataSending && (currentTime - lastSensorDataTime >= SENSOR_DATA_INTERVAL)) {
+  //   // sendMPUDataViaBLE(); // 新的函数
+  //   lastSensorDataTime = currentTime;
+  // }
+  // ----------------------------------------------------
 
-  strip.show();
-  
-  Serial.print("设置 LED 模式为: ");
-  Serial.println(ledMode);
+
+  // 定期打印状态到串口 (调试用)
+  if (currentTime - lastStatusTime >= statusInterval) {
+    lastStatusTime = currentTime;
+    // printStatus(); // 这个函数可以保留用于本地调试
+  }
+
+  delay(10); // 短暂延时，给系统其他任务时间
 }
 
-// 处理 LED 动画
-void handleLED(unsigned long currentTime) {
-  // 如果不需要动画，直接返回
-  if (!shouldAnimate) {
+
+// ====== 各模块处理函数细节 ======\n
+// 打印系统状态（仅串口输出） - 可以保留用于调试
+void printStatus() {
+// (保留您原有的 printStatus 函数内容)
+// ...
+  Serial.println("--- System Status ---");
+  Serial.print("LED Mode: ");
+  Serial.println(ledMode);
+  Serial.print("Motor Active: ");
+  Serial.println(motorActive ? "Yes" : "No");
+  Serial.print("Button State: ");
+  Serial.println(digitalRead(BUTTON_PIN) == LOW ? "Pressed" : "Released");
+  Serial.print("Uptime: ");
+  Serial.print(millis() / 1000);
+  Serial.println(" s");
+  // -------- 移除/注释掉 网络相关状态 --------
+  // Serial.print("WiFi Status: ");
+  // Serial.println(WiFi.status() == WL_CONNECTED ? "Connected" : "Disconnected");
+  // if (WiFi.status() == WL_CONNECTED) {
+  //   Serial.print("IP Address: ");
+  //   Serial.println(WiFi.localIP());
+  // }
+  // Serial.print("WebSocket Clients: ");
+  // Serial.println(connectedClients);
+  // Serial.print("Automatic Data Sending: ");
+  // Serial.println(automaticDataSending ? "Enabled" : "Disabled");
+  // ----------------------------------------------------
+  Serial.print("BLE Connected: ");
+  Serial.println(bleDeviceConnected ? "Yes" : "No");
+  Serial.println("---------------------");
+}
+
+
+// 处理MPU6050传感器数据并通过BLE发送
+void readMPU6050Data() { // Renamed from handleMPU and logic updated
+    unsigned long currentTime = millis();
+    // Check if BLE device is connected, characteristic exists, and it's time to send data
+    if (bleDeviceConnected && pMpuCharacteristic != nullptr && (currentTime - lastMpuNotifyTime >= mpuNotifyInterval)) {
+        lastMpuNotifyTime = currentTime;
+
+        sensors_event_t a, g, temp;
+        mpu.getEvent(&a, &g, &temp); // Read MPU6050 sensor data
+
+        // Prepare data string, e.g., "ax:1.0,ay:2.0,az:9.8,gx:0.1,gy:0.0,gz:0.2"
+        char mpuDataString[100]; // Ensure buffer is large enough
+        snprintf(mpuDataString, sizeof(mpuDataString),
+                 "ax:%.2f,ay:%.2f,az:%.2f,gx:%.2f,gy:%.2f,gz:%.2f",
+                 a.acceleration.x, a.acceleration.y, a.acceleration.z,
+                 g.gyro.x, g.gyro.y, g.gyro.z);
+
+        pMpuCharacteristic->setValue(mpuDataString);
+        pMpuCharacteristic->notify(); // Send data via BLE notification
+
+        // Optional: Print to Serial for debugging
+        // Serial.print("Sent MPU Data via BLE: ");
+        // Serial.println(mpuDataString);
+    }
+}
+
+
+// 检测按钮状态 - 简化消抖逻辑，直接检测按钮状态并发送命令
+void checkButton(unsigned long currentTime) {
+  static unsigned long lastButtonActionTime = 0;
+  static bool lastButtonState = HIGH;
+  bool currentButtonState = digitalRead(BUTTON_PIN);
+  
+  // 如果按钮状态变化，更新状态并记录时间
+  if (currentButtonState != lastButtonState) {
+    lastButtonState = currentButtonState;
+    
+    // 按钮被按下（LOW 因为使用上拉电阻）
+    if (currentButtonState == LOW) {
+      // 防止重复触发，至少间隔500ms
+      if (currentTime - lastButtonActionTime > 500) {
+        lastButtonActionTime = currentTime;
+        
+        // 发送KEY1命令到前端
+        if (bleDeviceConnected && pMpuCharacteristic) {
+          // 发送JSON格式的命令
+          String jsonCommand = "{\"type\":\"button\",\"key\":\"KEY1\"}";
+          pMpuCharacteristic->setValue(jsonCommand.c_str());
+          pMpuCharacteristic->notify();
+          
+          // 同时发送简单的KEY1字符串，确保兼容性
+          pMpuCharacteristic->setValue("KEY1");
+          pMpuCharacteristic->notify();
+          
+          Serial.print("Button pressed: Sent KEY1 command: ");
+          Serial.println(jsonCommand);
+        } else {
+          Serial.println("Button pressed but not connected or MPU characteristic not available");
+          if (!bleDeviceConnected) {
+            Serial.println("Device not connected");
+          }
+          if (!pMpuCharacteristic) {
+            Serial.println("MPU characteristic not available");
+          }
+        }
+      }
+    }
+  }
+}
+
+// 启动马达震动
+// type: 0=单次震动, 1=两次震动, 2=三次震动, 3=持续震动
+void startMotorVibration(unsigned long currentTime, int type) {
+  if (motorActive) {
+    Serial.println("Motor already active, ignoring new command");
     return;
   }
   
-  // 检查是否到了动画更新时间
-  if (currentTime - previousLedMillis >= animationInterval) {
-    previousLedMillis = currentTime;
-    
-    // 清除所有灯珠
-    strip.clear();
-    
-    // 根据模式设置颜色
-    uint32_t color;
-    if (ledMode == 4) {
-      color = strip.Color(255, 0, 0); // 红色
-    } else {
-      color = strip.Color(0, 0, 255); // 蓝色
-    }
-    
-    // 设置当前 LED 和尾巴
-    for (int i = 0; i < TAIL_LENGTH; i++) {
-      int pos = (currentLed - i) % NUMPIXELS;
-      if (pos < 0) pos += NUMPIXELS;
-      
-      // 设置逐渐减弱的亮度
-      int brightness = 255 * (TAIL_LENGTH - i) / TAIL_LENGTH;
-      uint32_t tailColor = strip.Color(
-        red(color) * brightness / 255,
-        green(color) * brightness / 255,
-        blue(color) * brightness / 255
-      );
-      
-      strip.setPixelColor(pos, tailColor);
-    }
-    
-    // 更新当前 LED 位置
-    currentLed = (currentLed + 1) % NUMPIXELS;
-    
+  motorActive = true;
+  vibrationCount = 0;
+  
+  switch(type) {
+    case 0:  // M - 单次震动
+      totalVibrations = 1;
+      break;
+    case 1:  // M2 - 两次震动
+      totalVibrations = 2;
+      break;
+    case 2:  // M3 - 三次震动
+      totalVibrations = 3;
+      break;
+    case 3:  // M4 - 持续震动
+      totalVibrations = -1;  // -1 表示持续震动
+      break;
+    default:
+      totalVibrations = 1;  // 默认单次震动
+  }
+  
+  lastVibrationTime = currentTime;
+  digitalWrite(MOTOR_PIN, HIGH);
+  Serial.print("Motor vibration started. Type: ");
+  Serial.println(type);
+}
 
-    
-    // 显示更新后的灯珠状态
-    strip.show();
+// 处理马达震动状态
+void handleMotor(unsigned long currentTime) {
+  static unsigned long lastDebugTime = 0;
+  
+  if (!motorActive) return;
+  
+  // 每500ms输出一次调试信息
+  if (currentTime - lastDebugTime >= 500) {
+    lastDebugTime = currentTime;
+    Serial.print("Motor state - Active: ");
+    Serial.print(motorActive);
+    Serial.print(", Pin state: ");
+    Serial.print(digitalRead(MOTOR_PIN));
+    Serial.print(", Vibration count: ");
+    Serial.print(vibrationCount);
+    Serial.print("/");
+    Serial.print(totalVibrations * 2);
+    Serial.print(", Total vibs: ");
+    Serial.println(totalVibrations);
+  }
+  
+  unsigned long elapsed = currentTime - lastVibrationTime;
+  bool isMotorOn = digitalRead(MOTOR_PIN) == HIGH;
+  
+  // 持续震动模式 (M4)
+  if (totalVibrations == -1) {
+    if (isMotorOn && elapsed >= vibrationDuration) {
+      digitalWrite(MOTOR_PIN, LOW);
+      lastVibrationTime = currentTime;
+      Serial.println("M4: Motor OFF");
+    } else if (!isMotorOn && elapsed >= vibrationInterval) {
+      digitalWrite(MOTOR_PIN, HIGH);
+      lastVibrationTime = currentTime;
+      Serial.println("M4: Motor ON");
+    }
+    return;
+  }
+  
+  // 有限次震动模式 (M, M2, M3)
+  if (vibrationCount >= totalVibrations * 2) {
+    // 震动完成
+    motorActive = false;
+    digitalWrite(MOTOR_PIN, LOW);
+    Serial.print("Motor vibration completed. Total pulses: ");
+    Serial.println(vibrationCount);
+    return;
+  }
+  
+  // 处理震动状态切换
+  if (isMotorOn && elapsed >= vibrationDuration) {
+    digitalWrite(MOTOR_PIN, LOW);
+    lastVibrationTime = currentTime;
+    vibrationCount++;
+    Serial.print("Pulse OFF, count: ");
+    Serial.println(vibrationCount);
+  } else if (!isMotorOn && elapsed >= vibrationInterval) {
+    digitalWrite(MOTOR_PIN, HIGH);
+    lastVibrationTime = currentTime;
+    vibrationCount++;
+    Serial.print("Pulse ON, count: ");
+    Serial.println(vibrationCount);
   }
 }
 
-// 设置所有灯珠为同一颜色
+// 设置 LED 模式 - 此函数可以保留，并由BLE命令调用
+void setLedMode(int mode) {
+// (保留您原有的 setLedMode 函数内容)
+// ...
+  ledMode = mode;
+  shouldAnimate = false; // 默认停止动画，除非是动画模式
+  currentLed = 0;      // 重置动画起始点
+
+  switch (ledMode) {
+    case 0: // 关闭
+      constantColor(strip.Color(0, 0, 0));
+      Serial.println("LED Mode: OFF");
+      break;
+    case 1: // 红色常亮
+      constantColor(strip.Color(255, 0, 0));
+      Serial.println("LED Mode: RED Constant");
+      break;
+    case 2: // 蓝色常亮
+      constantColor(strip.Color(0, 0, 255));
+      Serial.println("LED Mode: BLUE Constant");
+      break;
+    case 3: // 绿色常亮
+      constantColor(strip.Color(0, 255, 0));
+      Serial.println("LED Mode: GREEN Constant");
+      break;
+    case 4: // 红色带尾巴转圈
+    case 5: // 蓝色带尾巴转圈
+      shouldAnimate = true;
+      previousLedMillis = millis(); // 准备开始动画
+      Serial.print("LED Mode: Animation "); Serial.println(ledMode);
+      break;
+    default:
+      Serial.print("Unknown LED Mode: "); Serial.println(mode);
+      ledMode = 0; // 默认为关闭
+      constantColor(strip.Color(0, 0, 0));
+      break;
+  }
+}
+
+
+// 处理LED动画 - 此函数可以保留
+uint8_t red(uint32_t colorVal);
+uint8_t green(uint32_t colorVal);
+uint8_t blue(uint32_t colorVal);
+
+void handleLED(unsigned long currentTime) {
+// (保留您原有的 handleLED 函数内容)
+// ...
+  if (shouldAnimate && (currentTime - previousLedMillis >= animationInterval)) {
+    previousLedMillis = currentTime; // 更新上次动画时间
+
+    strip.clear(); // 清除之前的帧
+
+    uint32_t base_color_val; // Changed variable name to avoid conflict with blue() function
+    if (ledMode == 4) { // 红色动画
+      base_color_val = strip.Color(255, 0, 0);
+    } else if (ledMode == 5) { // 蓝色动画
+      base_color_val = strip.Color(0, 0, 255);
+    } else {
+      return; // 非动画模式不处理
+    }
+
+    // 绘制尾巴
+    for (int i = 0; i < TAIL_LENGTH; i++) {
+      int ledIndex = (currentLed - i + NUMPIXELS) % NUMPIXELS;
+      // 亮度随尾巴减弱 (简单线性减弱)
+      // Now calls the globally defined red, green, blue functions
+      uint8_t brightness_r = red(base_color_val) * (TAIL_LENGTH - i) / TAIL_LENGTH;
+      uint8_t brightness_g = green(base_color_val) * (TAIL_LENGTH - i) / TAIL_LENGTH;
+      uint8_t brightness_b = blue(base_color_val) * (TAIL_LENGTH - i) / TAIL_LENGTH;
+      strip.setPixelColor(ledIndex, strip.Color(brightness_r, brightness_g, brightness_b));
+    }
+    
+    strip.show();
+    currentLed = (currentLed + 1) % NUMPIXELS; // 移动到下一个LED
+  }
+}
+
+// 从颜色值中提取红色分量
+// Old red, green, blue helper functions with 'uint32_t color' parameter removed to avoid redefinition.
+
+
+// 设置灯带为常亮颜色并显示 - 此函数可以保留
 void constantColor(uint32_t c) {
+// (保留您原有的 constantColor 函数内容)
+// ...
   for (int i = 0; i < NUMPIXELS; i++) {
     strip.setPixelColor(i, c);
   }
   strip.show();
-}
-
-// 处理马达震动
-void handleMotor(unsigned long currentTime) {
-  // 如果马达不活动，直接返回
-  if (!motorActive) {
-    return;
-  }
-  
-  // 如果需要持续震动（类型3）
-  if (totalVibrations == 0) {
-    digitalWrite(MOTOR_PIN, HIGH);
-    return;
-  }
-  
-  // 处理有限次数的震动
-  if (currentTime - lastVibrationTime >= (digitalRead(MOTOR_PIN) == HIGH ? vibrationDuration : vibrationInterval)) {
-    lastVibrationTime = currentTime;
-    
-    if (digitalRead(MOTOR_PIN) == HIGH) {
-      // 当前震动结束，关闭马达
-      digitalWrite(MOTOR_PIN, LOW);
-      
-      // 检查是否完成所有震动
-      vibrationCount++;
-      if (vibrationCount >= totalVibrations) {
-        motorActive = false;
-        vibrationCount = 0;
-        Serial.println("震动完成");
-      }
-    } else {
-      // 开始下一次震动
-      digitalWrite(MOTOR_PIN, HIGH);
-    }
-  }
-}
-
-// 开始马达震动
-void startMotorVibration(unsigned long currentTime, int type) {
-  motorActive = true;
-  vibrationCount = 0;
-  lastVibrationTime = currentTime;
-  
-  // 根据类型设置震动次数
-  switch (type) {
-    case 0: // 单次震动
-      totalVibrations = 1;
-      break;
-    case 1: // 两次震动
-      totalVibrations = 2;
-      break;
-    case 2: // 三次震动
-      totalVibrations = 3;
-      break;
-    case 3: // 持续震动
-      totalVibrations = 0; // 0 表示持续震动
-      break;
-    default:
-      totalVibrations = 1;
-      break;
-  }
-  
-  // 立即开始震动
-  digitalWrite(MOTOR_PIN, HIGH);
-  
-  Serial.print("开始震动，类型: ");
-  Serial.println(type);
-}
-
-// 检测按钮状态
-void checkButton(unsigned long currentTime) {
-  // 读取当前按钮状态
-  int reading = digitalRead(BUTTON_PIN);
-  
-  // 如果按钮状态变化，重置消抖计时器
-  if (reading != lastButtonState) {
-    lastDebounceTime = currentTime;
-  }
-  
-  // 如果按钮状态稳定超过消抖时间
-  if ((currentTime - lastDebounceTime) > debounceDelay) {
-    // 如果按钮被按下（低电平）
-    if (reading == LOW) {
-      // 切换 LED 模式
-      int newMode = (ledMode + 1) % 6; // 循环切换 0-5 模式
-      setLedMode(newMode);
-      
-      // 发送按钮事件（如果需要）
-      Serial.println("按钮被按下，切换 LED 模式");
-      
-      // 可以在这里添加通过 BLE 发送按钮状态的代码
-    }
-  }
-  
-  // 保存当前按钮状态供下次比较
-  lastButtonState = reading;
-}
-
-// 读取 MPU6050 数据
-void readMPU6050Data() {
-  // 获取新的传感器事件
-  sensors_event_t a, g, temp;
-  mpu.getEvent(&a, &g, &temp);
-  
-  // 如果有 BLE 连接且时间到了，发送 MPU 数据
-  if (bleDeviceConnected && millis() - lastMpuNotifyTime >= mpuNotifyInterval) {
-    lastMpuNotifyTime = millis();
-    
-    // 创建 JSON 字符串来发送数据
-    char mpuData[100];
-    sprintf(mpuData, "{\"ax\":%.2f,\"ay\":%.2f,\"az\":%.2f,\"gx\":%.2f,\"gy\":%.2f,\"gz\":%.2f}", 
-            a.acceleration.x, a.acceleration.y, a.acceleration.z,
-            g.gyro.x, g.gyro.y, g.gyro.z);
-    
-    // 设置特征值并发送通知
-    if (pMpuCharacteristic != nullptr) {
-      pMpuCharacteristic->setValue(mpuData);
-      pMpuCharacteristic->notify();
-    }
-  }
-  
-  // 在串口输出传感器数据（用于调试）
-  if (millis() - lastStatusTime >= statusInterval) {
-    lastStatusTime = millis();
-    
-    Serial.print("Acceleration (m/s^2): ");
-    Serial.print(a.acceleration.x); Serial.print(", ");
-    Serial.print(a.acceleration.y); Serial.print(", ");
-    Serial.print(a.acceleration.z); Serial.println("");
-    
-    Serial.print("Rotation (rad/s): ");
-    Serial.print(g.gyro.x); Serial.print(", ");
-    Serial.print(g.gyro.y); Serial.print(", ");
-    Serial.print(g.gyro.z); Serial.println("");
-    
-    Serial.print("Temperature: ");
-    Serial.print(temp.temperature);
-    Serial.println(" degC");
-    Serial.println("");
-  }
 }
 
 // 从颜色值中提取红色分量
