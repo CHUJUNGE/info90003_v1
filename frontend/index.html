@@ -27,17 +27,14 @@
             <div class="modal-content">
                 <span class="close-button" id="close-modal-btn">&times;</span>
                 <h2>Connect to Devices</h2>
-                <button id="connect-main-esp32-btn" style="margin-bottom: 10px;">Connect Main ESP32</button>
-                <button id="connect-strip-light-esp32-btn">Connect Strip Light ESP32</button>
+                <button id="connect-main-esp32-btn">Connect Main ESP32</button>
                 <p id="main-esp32-modal-status" style="margin-top: 15px;">Main ESP32: Idle</p>
-                <p id="strip-light-esp32-modal-status">Strip Light ESP32: Idle</p>
             </div>
         </div>
 
         <!-- ESP32 Connection Status Indicator (Bottom Left) -->
         <div id="esp32-status-indicator" style="display: flex; flex-direction: column;">
             <div><span>Main ESP32: </span><span id="main-esp32-status-text">Disconnected</span></div>
-            <div><span>Strip Light ESP32: </span><span id="strip-light-esp32-status-text">Disconnected</span></div>
         </div>
 
         <!-- Stage Elements Container -->
@@ -193,7 +190,13 @@
                 
                 // 播放初始阶段音乐
                 if (audioManager) {
-                    audioManager.stopAllSounds();
+                    // 停止当前背景音乐
+                    audioManager.setStageMusic(null);
+                    // 停止可能正在播放的其他音效
+                    Object.keys(audioManager.sounds).forEach(soundName => {
+                        audioManager.stopSound(soundName);
+                    });
+                    // 播放初始阶段音乐
                     audioManager.playSound('stage0Music');
                 }
                 
@@ -247,13 +250,10 @@
                 const modal = document.getElementById('esp32-connect-modal');
                 const closeModalBtn = document.getElementById('close-modal-btn');
                 const connectMainEsp32Btn = document.getElementById('connect-main-esp32-btn');
-                const connectStripLightEsp32Btn = document.getElementById('connect-strip-light-esp32-btn');
                 const esp32IpInput = document.getElementById('esp32-ip');
                 const mainEsp32ModalStatus = document.getElementById('main-esp32-modal-status');
-                const stripLightEsp32ModalStatus = document.getElementById('strip-light-esp32-modal-status');
                 const statusIndicator = document.getElementById('esp32-status-indicator'); // This was correct
                 const mainEsp32StatusText = document.getElementById('main-esp32-status-text');
-                const stripLightEsp32StatusText = document.getElementById('strip-light-esp32-status-text');
                 // Assuming connectEsp32Btn (line 214) should be connectMainEsp32Btn for clarity if 'connect-esp32-btn' is not the main one.
                 // For now, we leave connectEsp32Btn as is, assuming it's used for the main connection logic elsewhere.
 
@@ -2081,7 +2081,7 @@ function transitionToStage4_1_1() {
                     // Declare stageHandlers at the beginning of the function scope
                     const stageHandlers = {
                         'stage2': transitionToStage2,
-                        'stage3': transitionToStage3, // Assuming transitionToStage3 exists
+                        // 'stage3': transitionToStage3, // This function doesn't exist, commenting out to fix error
                         'stage3-1': transitionToStage3_1,
                         'stage3-2': transitionToStage3_2,
                         'stage3-3': transitionToStage3_3,

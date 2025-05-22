@@ -1,22 +1,15 @@
 // frontend/js/main.js
 import { ESP32BLEConnection } from './esp32.js';
-import { ESP32StripLightConnection } from './esp32StripLight.js';
 
 document.addEventListener('DOMContentLoaded', () => {
-    // ESP32 Instances
+    // ESP32 Instance
     const esp32Main = new ESP32BLEConnection(); // Main ESP32 (Scene Control)
-    const esp32StripLight = new ESP32StripLightConnection(); // Strip Light ESP32
 
     // --- Get UI Elements ---
     // Main ESP32
     const connectMainBtn = document.getElementById('connect-main-esp32-btn');
     const mainStatusModal = document.getElementById('main-esp32-modal-status');
     const mainStatusIndicator = document.getElementById('main-esp32-status-text');
-
-    // Strip Light ESP32
-    const connectStripBtn = document.getElementById('connect-strip-light-esp32-btn');
-    const stripStatusModal = document.getElementById('strip-light-esp32-modal-status');
-    const stripStatusIndicator = document.getElementById('strip-light-esp32-status-text');
     
     // Modal close buttons
     const closeModalBtn = document.getElementById('close-modal-btn');
@@ -76,40 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // });
 
 
-    // --- Strip Light ESP32 (ESP32_Strip_Light_2) Event Handlers & Logic ---
-    if (connectStripBtn) {
-        connectStripBtn.addEventListener('click', async () => {
-            if (!esp32StripLight.isConnected()) {
-                updateConnectionStatusUI('Strip Light ESP32', 'Connecting...', stripStatusModal, stripStatusIndicator);
-                const success = await esp32StripLight.connect();
-                if (success) {
-                    updateConnectionStatusUI('Strip Light ESP32', 'Connected', stripStatusModal, stripStatusIndicator);
-                } else {
-                    updateConnectionStatusUI('Strip Light ESP32', 'Failed to Connect', stripStatusModal, stripStatusIndicator);
-                }
-            } else {
-                esp32StripLight.disconnect();
-            }
-        });
-    }
-
-    esp32StripLight.on('connect', (deviceName) => {
-        updateConnectionStatusUI('Strip Light ESP32', 'Connected', stripStatusModal, stripStatusIndicator);
-        if (connectStripBtn) connectStripBtn.textContent = 'Disconnect Strip Light ESP32';
-        // 连接成功后不自动关闭模态框，让用户手动关闭
-        console.log('Strip Light ESP32连接成功，模态框保持打开状态，需要手动关闭');
-    });
-
-    esp32StripLight.on('disconnect', (deviceName, reason) => {
-        updateConnectionStatusUI('Strip Light ESP32', `Disconnected (${reason || 'user action'})`, stripStatusModal, stripStatusIndicator);
-        if (connectStripBtn) connectStripBtn.textContent = 'Connect Strip Light ESP32';
-    });
-
-    // NO DEDICATED STRIP LIGHT BUTTONS - Commands will be sent from other parts of your application logic
-    // e.g., during specific scene transitions or events:
-    // if (esp32StripLight.isConnected()) {
-    //     esp32StripLight.sendCommand('blue');
-    // }
+    // Strip Light ESP32 功能已移除，因为 LED 灯带现在通电后自动循环显示效果
 
 
     // --- Modal Handling ---
@@ -146,14 +106,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initialize status on page load
     updateConnectionStatusUI('Main ESP32', 'Disconnected', mainStatusModal, mainStatusIndicator);
-    updateConnectionStatusUI('Strip Light ESP32', 'Disconnected', stripStatusModal, stripStatusIndicator);
     
-    // Make ESP32 instances available globally FOR NOW - for easier integration with existing inline script.
+    // Make ESP32 instance available globally FOR NOW - for easier integration with existing inline script.
     // Consider refactoring inline script to import these or pass them as parameters.
     window.esp32Main = esp32Main;
-    window.esp32StripLight = esp32StripLight;
 
-    console.log("Main Bluetooth script loaded and initialized. LED strip controls are NOT managed by dedicated buttons.");
+    console.log("Main Bluetooth script loaded and initialized.");
 
     // --- TODO: Integrate your existing globe.js, stage transitions, and other logic below ---
     // Remember to replace 'esp32Connection' with 'esp32Main' or 'esp32StripLight' where appropriate.

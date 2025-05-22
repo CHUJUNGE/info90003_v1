@@ -2,6 +2,6 @@
     "cup_completed": false,
     "knife_completed": false,
     "phone_completed": false,
-    "monitor_completed": false,
+    "monitor_completed": true,
     "all_completed": false
 }
