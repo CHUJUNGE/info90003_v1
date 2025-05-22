@@ -961,12 +961,18 @@
                             resultImage.id = 'stage5-result-image';
                             resultImage.style.opacity = '0'; // 初始不可见
                             resultImage.style.transition = 'opacity 1.5s ease-in-out';
-                            resultImage.style.width = '90%';
-                            resultImage.style.height = '90vh';
-                            resultImage.style.objectFit = 'contain';
-                            resultImage.style.borderRadius = '10px';
+                            resultImage.style.width = '100%';
+                            resultImage.style.height = '100vh';
+                            resultImage.style.objectFit = 'contain'; // 改回contain以显示完整图片
+                            resultImage.style.position = 'fixed';
+                            resultImage.style.top = '0';
+                            resultImage.style.left = '0';
+                            resultImage.style.zIndex = '1000';
+                            resultImage.style.backgroundColor = 'rgba(0, 0, 0, 0.9)'; // 添加深色背景
+                            resultImage.style.padding = '0'; // 移除内边距
+                            resultImage.style.margin = '0'; // 移除外边距
+                            resultImage.style.borderRadius = '0'; // 移除圆角
                             resultImage.style.boxShadow = '0 0 30px rgba(0, 204, 255, 0.9)';
-                            resultImage.style.margin = 'auto'; // 居中显示
                             
                             // 6. 根据条件设置图片源
                             if (window.playedCameraHigh && window.playedPhoneHigh) {
